@@ -22,73 +22,83 @@ extension SwiftLanguageService {
     try Task.checkCancellation()
 
     return req.positions.map { position in
-      let offset = snapshot.absolutePosition(of: position)
+      let absolutePosition = snapshot.absolutePosition(of: position)
 
-      guard let token = sourceFile.token(at: offset), let initialNode = token.parent else {
+      guard let token = sourceFile.token(at: absolutePosition), let initialNode = token.parent else {
         return SelectionRange(range: position..<position)
       }
 
-      return computeSelectionRangeFor(position: position, snapshot: snapshot, initialNode: initialNode)
+      if let selectionRange = computeSelectionRangeFor(
+        position: absolutePosition,
+        snapshot: snapshot,
+        initialNode: initialNode
+      ) {
+        return selectionRange
+      } else {
+        return SelectionRange(range: position..<position)
+      }
     }
   }
 }
 
 private func computeSelectionRangeFor(
-  position: Position,
+  position: AbsolutePosition,
   snapshot: DocumentSnapshot,
   initialNode: Syntax
-) -> SelectionRange {
-  var ranges: [Range<Position>] = []
+) -> SelectionRange? {
+  var ranges: [Range<AbsolutePosition>] = []
 
   for node in sequence(first: initialNode, next: { $0.parent }) {
-    if shouldSkipNode(node) {
+    let rangesForNode = calculateRangesFor(node: node, snapshot: snapshot, position: position)
+
+    if rangesForNode.isEmpty {
       continue
     }
 
-    let start = snapshot.position(of: node.positionAfterSkippingLeadingTrivia)
-    let end = snapshot.position(of: node.endPositionBeforeTrailingTrivia)
-    let range = start..<end
+    for range in rangesForNode {
+      if ranges.last == range {
+        // some ast nodes have the exact same range, we just skip creating ranges for them
+        continue
+      }
 
-    if ranges.last == range {
-      // some ast nodes have the exact same range, we just skip creating ranges for them
-      continue
+      ranges.append(range)
     }
-
-    if let stringSegment = node.as(StringSegmentSyntax.self) {
-      ranges.append(
-        contentsOf: calculateRangesInside(stringSegment: stringSegment, snapshot: snapshot, position: position)
-      )
-    }
-
-    ranges.append(range)
   }
 
   var selectionRange: SelectionRange? = nil
   for range in ranges.reversed() {
-    selectionRange = SelectionRange(range: range, parent: selectionRange)
+    let start = snapshot.position(of: range.lowerBound)
+    let end = snapshot.position(of: range.upperBound)
+    selectionRange = SelectionRange(range: start..<end, parent: selectionRange)
   }
 
-  return selectionRange!
+  return selectionRange
 }
 
-private func shouldSkipNode(_ node: Syntax) -> Bool {
-  return switch node.as(SyntaxEnum.self) {
+private func calculateRangesFor(
+  node: Syntax,
+  snapshot: DocumentSnapshot,
+  position: AbsolutePosition
+) -> [Range<AbsolutePosition>] {
+  if let stringSegment = node.as(StringSegmentSyntax.self) {
+    return calculateRangesInside(stringSegment: stringSegment, snapshot: snapshot, position: position)
+  }
+
+  switch node.as(SyntaxEnum.self) {
   case .patternBinding, .patternBindingList, .initializerClause:
-    true
+    return []
 
   default:
-    false
+    return [node.trimmedRange]
   }
 }
 
-// we return a list here as this allows us to possibly return multiple ranges in the future
 private func calculateRangesInside(
   stringSegment: StringSegmentSyntax,
   snapshot: DocumentSnapshot,
-  position: Position
-) -> [Range<Position>] {
-  let absolutePosition = snapshot.absolutePosition(of: position)
-  let offsetInString = absolutePosition.utf8Offset - stringSegment.positionAfterSkippingLeadingTrivia.utf8Offset
+  position: AbsolutePosition
+) -> [Range<AbsolutePosition>] {
+  let offsetInString = position.utf8Offset - stringSegment.positionAfterSkippingLeadingTrivia.utf8Offset
 
   let text = stringSegment.content.text
   let index = text.index(text.startIndex, offsetBy: offsetInString)
@@ -117,12 +127,8 @@ private func calculateRangesInside(
   let startOffsetInString = text.distance(from: text.startIndex, to: start)
   let endOffsetInString = text.distance(from: text.startIndex, to: end)
 
-  let startPosition = snapshot.position(
-    of: stringSegment.positionAfterSkippingLeadingTrivia.advanced(by: startOffsetInString)
-  )
-  let endPosition = snapshot.position(
-    of: stringSegment.positionAfterSkippingLeadingTrivia.advanced(by: endOffsetInString)
-  )
+  let startPosition = stringSegment.positionAfterSkippingLeadingTrivia.advanced(by: startOffsetInString)
+  let endPosition = stringSegment.positionAfterSkippingLeadingTrivia.advanced(by: endOffsetInString)
 
   return [startPosition..<endPosition]
 }
