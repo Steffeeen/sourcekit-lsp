@@ -80,12 +80,15 @@ private func calculateRangesFor(
   snapshot: DocumentSnapshot,
   position: AbsolutePosition
 ) -> [Range<AbsolutePosition>] {
-  if let stringSegment = node.as(StringSegmentSyntax.self) {
-    return calculateRangesInside(stringSegment: stringSegment, snapshot: snapshot, position: position)
-  }
-
   switch node.as(SyntaxEnum.self) {
-  case .patternBinding, .patternBindingList, .initializerClause:
+
+  case .stringSegment(let segment):
+    return calculateRangesInside(stringSegment: segment, snapshot: snapshot, position: position)
+
+  case .functionCallExpr(let functionCall):
+    return calculateRangesInside(functionCall: functionCall, position: position)
+
+  case .patternBinding, .patternBindingList, .initializerClause, .memberAccessExpr, .matchingPatternCondition:
     return []
 
   default:
@@ -131,4 +134,33 @@ private func calculateRangesInside(
   let endPosition = stringSegment.positionAfterSkippingLeadingTrivia.advanced(by: endOffsetInString)
 
   return [startPosition..<endPosition]
+}
+
+private func calculateRangesInside(
+  functionCall: FunctionCallExprSyntax,
+  position: AbsolutePosition
+) -> [Range<AbsolutePosition>] {
+  if let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
+    functionCall.parent?.as(ExpressionPatternSyntax.self) == nil,
+    functionCall.arguments.trimmedRange.contains(position)
+      || functionCall.trailingClosure?.trimmedRange.contains(position) ?? false
+  {
+    // Special case for adding an extra range including the function name and parameters/trailing closures
+    // this is needed for chained method calls
+    // Example:
+    // numbers
+    //  .filter { $0 > 0 }
+    //  .map { $0 * 2 }
+    //  .reduce(0,| +)
+    //
+    // when starting a selection from | we want to have a selection for `reduce(0, +)` in addition to selecting
+    // the entire function call (starting from `numbers`)
+    return [
+      memberAccess.declName.positionAfterSkippingLeadingTrivia..<functionCall.endPositionBeforeTrailingTrivia,
+      functionCall.trimmedRange,
+    ]
+  }
+
+  // the default case: just create a range for the function call node
+  return [functionCall.trimmedRange]
 }
