@@ -92,7 +92,10 @@ private func calculateRangesFor(
   case .sequenceExpr(let sequenceExpression):
     return calculateRangesInside(sequenceExpression: sequenceExpression, position: position)
 
-  case .patternBinding, .patternBindingList, .initializerClause, .memberAccessExpr, .matchingPatternCondition,
+  case .patternBinding(let patternBinding):
+    return calculateRangesInside(patternBinding: patternBinding)
+
+  case .patternBindingList, .initializerClause, .memberAccessExpr, .matchingPatternCondition,
     .exprList:
     return []
 
@@ -221,4 +224,30 @@ private func findCorrespondingOperandIn(foldedTree: Syntax, positionInFoldedTree
 
     current = child
   }
+}
+
+private func calculateRangesInside(patternBinding: PatternBindingSyntax) -> [Range<AbsolutePosition>] {
+  guard let patternBindingList = patternBinding.parent?.as(PatternBindingListSyntax.self) else {
+    return []
+  }
+
+  if patternBindingList.children(viewMode: .sourceAccurate).count > 1 {
+    // special case for pattern bindings like this: `let x = 1, y = 2, z = 3`
+    // here we want to be able to select only `y = 2`
+    let start = patternBinding.positionAfterSkippingLeadingTrivia
+    let end =
+      if let comma = patternBinding.trailingComma {
+        comma.position
+      } else {
+        patternBinding.endPositionBeforeTrailingTrivia
+      }
+    return [start..<end]
+  }
+
+  if let accessorBlock = patternBinding.accessorBlock {
+    return [accessorBlock.trimmedRange]
+  }
+
+  // by default we don't want to create ranges for pattern bindings to avoid selecting `x = 0` in `let x = 0`
+  return []
 }
