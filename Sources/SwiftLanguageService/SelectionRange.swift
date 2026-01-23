@@ -83,6 +83,12 @@ private func calculateRangesFor(
 ) -> [Range<AbsolutePosition>] {
   switch node.as(SyntaxEnum.self) {
 
+  case .labeledExpr(let labeledExpression):
+    return [
+      labeledExpression
+        .positionAfterSkippingLeadingTrivia..<labeledExpression.expression.endPositionBeforeTrailingTrivia
+    ]
+
   case .stringSegment(let segment):
     return calculateRangesInside(stringSegment: segment, snapshot: snapshot, position: position)
 
