@@ -12,6 +12,7 @@
 
 @_spi(SourceKitLSP) package import LanguageServerProtocol
 import SourceKitLSP
+import SwiftOperators
 import SwiftSyntax
 
 extension SwiftLanguageService {
@@ -88,7 +89,11 @@ private func calculateRangesFor(
   case .functionCallExpr(let functionCall):
     return calculateRangesInside(functionCall: functionCall, position: position)
 
-  case .patternBinding, .patternBindingList, .initializerClause, .memberAccessExpr, .matchingPatternCondition:
+  case .sequenceExpr(let sequenceExpression):
+    return calculateRangesInside(sequenceExpression: sequenceExpression, position: position)
+
+  case .patternBinding, .patternBindingList, .initializerClause, .memberAccessExpr, .matchingPatternCondition,
+    .exprList:
     return []
 
   default:
@@ -163,4 +168,57 @@ private func calculateRangesInside(
 
   // the default case: just create a range for the function call node
   return [functionCall.trimmedRange]
+}
+
+private func calculateRangesInside(
+  sequenceExpression: SequenceExprSyntax,
+  position: AbsolutePosition
+) -> [Range<AbsolutePosition>] {
+  let table = OperatorTable.standardOperators
+  guard let foldedTree = try? table.foldSingle(sequenceExpression) else { return [] }
+
+  let positionInFoldedTree = position - SourceLength(utf8Length: sequenceExpression.position.utf8Offset)
+
+  let operandNode = findCorrespondingOperandIn(
+    foldedTree: Syntax(foldedTree),
+    positionInFoldedTree: positionInFoldedTree
+  )
+
+  var ranges: [Range<AbsolutePosition>] = []
+
+  for node in sequence(first: operandNode, next: { $0.parent }) {
+    if node.is(InfixOperatorExprSyntax.self) {
+      let startPosition =
+        sequenceExpression.position + SourceLength(utf8Length: node.positionAfterSkippingLeadingTrivia.utf8Offset)
+      let endPosition =
+        sequenceExpression.position + SourceLength(utf8Length: node.endPositionBeforeTrailingTrivia.utf8Offset)
+      ranges.append(startPosition..<endPosition)
+    }
+  }
+
+  if ranges.last != sequenceExpression.trimmedRange {
+    ranges.append(sequenceExpression.trimmedRange)
+  }
+
+  return ranges
+
+}
+
+private func findCorrespondingOperandIn(foldedTree: Syntax, positionInFoldedTree: AbsolutePosition) -> Syntax {
+  var current = foldedTree
+  while true {
+    guard
+      let child = current.children(viewMode: .sourceAccurate).first(where: {
+        $0.position <= positionInFoldedTree && positionInFoldedTree < $0.endPosition
+      })
+    else {
+      return current
+    }
+
+    if !child.is(InfixOperatorExprSyntax.self) {
+      return child
+    }
+
+    current = child
+  }
 }
