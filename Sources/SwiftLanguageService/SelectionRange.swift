@@ -95,6 +95,9 @@ private func calculateRangesFor(
   case .patternBinding(let patternBinding):
     return calculateRangesInside(patternBinding: patternBinding)
 
+  case .codeBlock(let codeBlock):
+    return calculateRangesInside(codeBlock: codeBlock)
+
   case .patternBindingList, .initializerClause, .memberAccessExpr, .matchingPatternCondition,
     .exprList:
     return []
@@ -249,5 +252,17 @@ private func calculateRangesInside(patternBinding: PatternBindingSyntax) -> [Ran
   }
 
   // by default we don't want to create ranges for pattern bindings to avoid selecting `x = 0` in `let x = 0`
+  return []
+}
+
+private func calculateRangesInside(codeBlock: CodeBlockSyntax) -> [Range<AbsolutePosition>] {
+  if let ifExpression = codeBlock.parent?.as(IfExprSyntax.self),
+    let elseKeyword = ifExpression.elseKeyword,
+    ifExpression.elseBody?.id == codeBlock.id
+  {
+    // special case for if expression: when inside the else block add a range for selection `else {...}`
+    return [elseKeyword.positionAfterSkippingLeadingTrivia..<codeBlock.endPositionBeforeTrailingTrivia]
+  }
+
   return []
 }
