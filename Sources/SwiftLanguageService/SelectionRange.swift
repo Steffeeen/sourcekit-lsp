@@ -199,6 +199,11 @@ private func calculateRangesInside(
   let rangeWithoutComma = start..<end
 
   if parameter.type.trimmedRange.contains(position) {
+    if let ellipsis = parameter.ellipsis {
+      // add an additional range for selecting the ellipsis of variadic parameters
+      let range = parameter.type.positionAfterSkippingLeadingTrivia..<ellipsis.endPositionBeforeTrailingTrivia
+      return [range, rangeWithoutComma]
+    }
     return [rangeWithoutComma]
   }
 
