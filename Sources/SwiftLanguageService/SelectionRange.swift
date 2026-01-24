@@ -95,6 +95,9 @@ private func calculateRangesFor(
   case .functionCallExpr(let functionCall):
     return calculateRangesInside(functionCall: functionCall, position: position)
 
+  case .functionParameter(let parameter):
+    return calculateRangesInside(parameter: parameter, position: position)
+
   case .sequenceExpr(let sequenceExpression):
     return calculateRangesInside(sequenceExpression: sequenceExpression, position: position)
 
@@ -105,7 +108,7 @@ private func calculateRangesFor(
     return calculateRangesInside(codeBlock: codeBlock)
 
   case .patternBindingList, .initializerClause, .memberAccessExpr, .matchingPatternCondition,
-    .exprList, .accessorDeclList:
+    .exprList, .accessorDeclList, .functionParameterClause, .functionSignature:
     return []
 
   default:
@@ -180,6 +183,41 @@ private func calculateRangesInside(
 
   // the default case: just create a range for the function call node
   return [functionCall.trimmedRange]
+}
+
+private func calculateRangesInside(
+  parameter: FunctionParameterSyntax,
+  position: AbsolutePosition
+) -> [Range<AbsolutePosition>] {
+  let start = parameter.positionAfterSkippingLeadingTrivia
+  let end =
+    if let comma = parameter.trailingComma {
+      comma.position
+    } else {
+      parameter.endPositionBeforeTrailingTrivia
+    }
+  let rangeWithoutComma = start..<end
+
+  if parameter.type.trimmedRange.contains(position) {
+    return [rangeWithoutComma]
+  }
+
+  if let defaultValue = parameter.defaultValue, defaultValue.trimmedRange.contains(position) {
+    return [rangeWithoutComma]
+  }
+
+  let firstNameRange = parameter.firstName.trimmedRange
+
+  if let secondName = parameter.secondName {
+    let range = firstNameRange.lowerBound..<secondName.endPositionBeforeTrailingTrivia
+    if parameter.firstName.trimmedRange.contains(position) {
+      return [firstNameRange, range, rangeWithoutComma]
+    } else if secondName.trimmedRange.contains(position) {
+      return [secondName.trimmedRange, range, rangeWithoutComma]
+    }
+  }
+
+  return [firstNameRange, rangeWithoutComma]
 }
 
 private func calculateRangesInside(
