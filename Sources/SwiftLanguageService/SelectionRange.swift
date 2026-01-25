@@ -98,6 +98,12 @@ private func calculateRangesFor(
   case .functionDecl(let functionDeclaration):
     return calculateRangesInside(functionDeclaration: functionDeclaration, position: position)
 
+  case .genericParameterClause(let genericParameterClause):
+    return calculateRangesInside(genericParameterClause: genericParameterClause, position: position)
+
+  case .genericParameter(let genericParameter):
+    return calculateRangesInside(genericParameter: genericParameter)
+
   case .functionParameter(let parameter):
     return calculateRangesInside(parameter: parameter, position: position)
 
@@ -198,11 +204,45 @@ private func calculateRangesInside(
   var ranges: [Range<AbsolutePosition>] = []
   if functionDeclaration.name.trimmedRange.contains(position) {
     ranges.append(functionDeclaration.name.trimmedRange)
+  } else if let genericClause = functionDeclaration.genericParameterClause,
+    genericClause.trimmedRange.contains(position)
+  {
+    ranges.append(
+      functionDeclaration.name.positionAfterSkippingLeadingTrivia..<genericClause.endPositionBeforeTrailingTrivia
+    )
   }
 
   ranges.append(functionDeclaration.trimmedRange)
 
   return ranges
+}
+
+private func calculateRangesInside(
+  genericParameterClause: GenericParameterClauseSyntax,
+  position: AbsolutePosition
+) -> [Range<AbsolutePosition>] {
+  if genericParameterClause.rightAngle.trimmedRange.contains(position) {
+    // special case for when the cursor is directly before the angle bracket, like this: `<T|>`
+    // in this case we still want to have a selection range for selecting `T`
+    var ranges: [Range<AbsolutePosition>] = []
+    if let lastParameter = genericParameterClause.parameters.last {
+      if lastParameter.trailingComma == nil {
+        ranges.append(contentsOf: calculateRangesInside(genericParameter: lastParameter))
+      } else {
+        // if the parameter has a trailing comma like this: `<T,|>` we don't create an additional range
+        ranges.append(lastParameter.trimmedRange)
+      }
+    }
+    ranges.append(genericParameterClause.trimmedRange)
+    return ranges
+  }
+
+  return [genericParameterClause.trimmedRange]
+}
+
+private func calculateRangesInside(genericParameter: GenericParameterSyntax) -> [Range<AbsolutePosition>] {
+  let end = genericParameter.trailingComma?.position ?? genericParameter.endPositionBeforeTrailingTrivia
+  return [genericParameter.positionAfterSkippingLeadingTrivia..<end]
 }
 
 private func calculateRangesInside(
