@@ -83,17 +83,14 @@ private func calculateRangesFor(
 ) -> [Range<AbsolutePosition>] {
   switch node.as(SyntaxEnum.self) {
 
-  case .labeledExpr(let labeledExpression):
-    return [
-      labeledExpression
-        .positionAfterSkippingLeadingTrivia..<labeledExpression.expression.endPositionBeforeTrailingTrivia
-    ]
-
   case .stringSegment(let segment):
     return calculateRangesInside(stringSegment: segment, snapshot: snapshot, position: position)
 
   case .functionCallExpr(let functionCall):
     return calculateRangesInside(functionCall: functionCall, position: position)
+
+  case .labeledExpr(let labeledExpression):
+    return calculateRangesInside(labeledExpression: labeledExpression)
 
   case .functionDecl(let functionDeclaration):
     return calculateRangesInside(functionDeclaration: functionDeclaration, position: position)
@@ -193,8 +190,29 @@ private func calculateRangesInside(
     ]
   }
 
+  if let rightParen = functionCall.rightParen,
+    rightParen.trimmedRange.contains(position),
+    let lastArgument = functionCall.arguments.last
+  {
+    // special case for when the cursor is right before the closing paren, like this: `test(a: 1|)`
+    // we still want to select the parameters first
+    var ranges: [Range<AbsolutePosition>] = []
+
+    ranges.append(lastArgument.expression.trimmedRange)
+    ranges.append(contentsOf: calculateRangesInside(labeledExpression: lastArgument))
+    ranges.append(functionCall.arguments.trimmedRange)
+    ranges.append(functionCall.trimmedRange)
+    
+    return ranges
+  }
+
   // the default case: just create a range for the function call node
   return [functionCall.trimmedRange]
+}
+
+private func calculateRangesInside(labeledExpression: LabeledExprSyntax) -> [Range<AbsolutePosition>] {
+  let end = labeledExpression.expression.endPositionBeforeTrailingTrivia
+  return [labeledExpression.positionAfterSkippingLeadingTrivia..<end]
 }
 
 private func calculateRangesInside(
