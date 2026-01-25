@@ -95,6 +95,9 @@ private func calculateRangesFor(
   case .functionCallExpr(let functionCall):
     return calculateRangesInside(functionCall: functionCall, position: position)
 
+  case .functionDecl(let functionDeclaration):
+    return calculateRangesInside(functionDeclaration: functionDeclaration, position: position)
+
   case .functionParameter(let parameter):
     return calculateRangesInside(parameter: parameter, position: position)
 
@@ -186,6 +189,20 @@ private func calculateRangesInside(
 
   // the default case: just create a range for the function call node
   return [functionCall.trimmedRange]
+}
+
+private func calculateRangesInside(
+  functionDeclaration: FunctionDeclSyntax,
+  position: AbsolutePosition
+) -> [Range<AbsolutePosition>] {
+  var ranges: [Range<AbsolutePosition>] = []
+  if functionDeclaration.name.trimmedRange.contains(position) {
+    ranges.append(functionDeclaration.name.trimmedRange)
+  }
+
+  ranges.append(functionDeclaration.trimmedRange)
+
+  return ranges
 }
 
 private func calculateRangesInside(
