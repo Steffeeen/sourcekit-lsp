@@ -98,6 +98,9 @@ private func calculateRangesFor(
   case .functionParameter(let parameter):
     return calculateRangesInside(parameter: parameter, position: position)
 
+  case .functionSignature(let signature):
+    return calculateRangesInside(signature: signature, position: position)
+
   case .sequenceExpr(let sequenceExpression):
     return calculateRangesInside(sequenceExpression: sequenceExpression, position: position)
 
@@ -108,7 +111,7 @@ private func calculateRangesFor(
     return calculateRangesInside(codeBlock: codeBlock)
 
   case .patternBindingList, .initializerClause, .memberAccessExpr, .matchingPatternCondition,
-    .exprList, .accessorDeclList, .functionParameterClause, .functionSignature:
+    .exprList, .accessorDeclList, .functionParameterClause, .functionEffectSpecifiers:
     return []
 
   default:
@@ -223,6 +226,33 @@ private func calculateRangesInside(
   }
 
   return [firstNameRange, rangeWithoutComma]
+}
+
+private func calculateRangesInside(
+  signature: FunctionSignatureSyntax,
+  position: AbsolutePosition
+) -> [Range<AbsolutePosition>] {
+  var ranges: [Range<AbsolutePosition>] = []
+  if let effectSpecifiers = signature.effectSpecifiers,
+    let asyncSpecifier = effectSpecifiers.asyncSpecifier,
+    asyncSpecifier.trimmedRange.contains(position)
+  {
+    // explicitly add a range for the async keyword token as we directly skip to the parent of the token that contained the cursor
+    ranges.append(asyncSpecifier.trimmedRange)
+  }
+
+  if let effectSpecifiers = signature.effectSpecifiers,
+    let returnClause = signature.returnClause
+  {
+    if effectSpecifiers.trimmedRange.contains(position) {
+      ranges.append(effectSpecifiers.trimmedRange)
+      ranges.append(effectSpecifiers.positionAfterSkippingLeadingTrivia..<returnClause.endPositionBeforeTrailingTrivia)
+    } else if returnClause.trimmedRange.contains(position) {
+      ranges.append(effectSpecifiers.positionAfterSkippingLeadingTrivia..<returnClause.endPositionBeforeTrailingTrivia)
+    }
+  }
+
+  return ranges
 }
 
 private func calculateRangesInside(
