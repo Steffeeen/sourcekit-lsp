@@ -228,6 +228,17 @@ private func calculateRangesInside(
     ranges.append(
       functionDeclaration.name.positionAfterSkippingLeadingTrivia..<genericClause.endPositionBeforeTrailingTrivia
     )
+  } else if functionDeclaration.signature.parameterClause.rightParen.trimmedRange.contains(position),
+  let lastArgument = functionDeclaration.signature.parameterClause.parameters.last {
+    // special case for when the cursor is directly before the closing paren, like this: `a: Int|)`
+    ranges.append(lastArgument.type.trimmedRange)
+    // using this position is a bit of a hack, but it is needed as the calculateRangesInside() function
+    // uses the position information to check which ranges it needs to create
+    // if we provided the correct position the function would return the wrong ranges
+    let shiftedPosition = lastArgument.endPositionBeforeTrailingTrivia.advanced(by: -1)
+    ranges.append(contentsOf: calculateRangesInside(parameter: lastArgument, position: shiftedPosition))
+
+    ranges.append(functionDeclaration.signature.parameterClause.parameters.trimmedRange)
   }
 
   ranges.append(functionDeclaration.trimmedRange)
