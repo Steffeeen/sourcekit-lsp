@@ -107,6 +107,9 @@ private func calculateRangesFor(
   case .functionSignature(let signature):
     return calculateRangesInside(signature: signature, position: position)
 
+  case .closureSignature(let closureSignature):
+    return calculateRangesInside(closureSignature: closureSignature)
+
   case .sequenceExpr(let sequenceExpression):
     return calculateRangesInside(sequenceExpression: sequenceExpression, position: position)
 
@@ -336,6 +339,19 @@ private func calculateRangesInside(
     } else if returnClause.trimmedRange.contains(position) {
       ranges.append(effectSpecifiers.positionAfterSkippingLeadingTrivia..<returnClause.endPositionBeforeTrailingTrivia)
     }
+  }
+
+  return ranges
+}
+
+private func calculateRangesInside(closureSignature: ClosureSignatureSyntax) -> [Range<AbsolutePosition>] {
+  var ranges: [Range<AbsolutePosition>] = []
+  ranges.append(closureSignature.trimmedRange)
+
+  if let closureExpression = closureSignature.parent?.as(ClosureExprSyntax.self) {
+    let start = closureSignature.positionAfterSkippingLeadingTrivia
+    let end = closureExpression.statements.endPositionBeforeTrailingTrivia
+    ranges.append(start..<end)
   }
 
   return ranges
