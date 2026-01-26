@@ -110,6 +110,12 @@ private func calculateRangesFor(
   case .closureSignature(let closureSignature):
     return calculateRangesInside(closureSignature: closureSignature)
 
+  case .classDecl(let classDeclaration):
+    return calculateRangesInside(classDeclaration: classDeclaration, position: position)
+
+  case .structDecl(let structDeclaration):
+    return calculateRangesInside(structDeclaration: structDeclaration, position: position)
+
   case .sequenceExpr(let sequenceExpression):
     return calculateRangesInside(sequenceExpression: sequenceExpression, position: position)
 
@@ -123,7 +129,7 @@ private func calculateRangesFor(
     return calculateRangesInside(forStatement: forStatement)
 
   case .patternBindingList, .initializerClause, .memberAccessExpr, .matchingPatternCondition,
-    .exprList, .accessorDeclList, .functionParameterClause, .functionEffectSpecifiers, .switchCaseLabel, .switchCaseList:
+    .exprList, .accessorDeclList, .functionParameterClause, .functionEffectSpecifiers, .switchCaseLabel, .switchCaseList, .inheritanceClause, .inheritedType:
     return []
 
   default:
@@ -356,6 +362,42 @@ private func calculateRangesInside(closureSignature: ClosureSignatureSyntax) -> 
     let end = closureExpression.statements.endPositionBeforeTrailingTrivia
     ranges.append(start..<end)
   }
+
+  return ranges
+}
+
+private func calculateRangesInside(classDeclaration: ClassDeclSyntax, position: AbsolutePosition) -> [Range<AbsolutePosition>] {
+  var ranges: [Range<AbsolutePosition>] = []
+
+  if classDeclaration.name.trimmedRange.contains(position) {
+    ranges.append(classDeclaration.name.trimmedRange)
+  }
+
+  if let inheritanceClause = classDeclaration.inheritanceClause {
+    let start = classDeclaration.name.positionAfterSkippingLeadingTrivia
+    let end = inheritanceClause.endPositionBeforeTrailingTrivia
+    ranges.append(start..<end)
+  }
+
+  ranges.append(classDeclaration.trimmedRange)
+
+  return ranges
+}
+
+private func calculateRangesInside(structDeclaration: StructDeclSyntax, position: AbsolutePosition) -> [Range<AbsolutePosition>] {
+  var ranges: [Range<AbsolutePosition>] = []
+
+  if structDeclaration.name.trimmedRange.contains(position) {
+    ranges.append(structDeclaration.name.trimmedRange)
+  }
+
+  if let inheritanceClause = structDeclaration.inheritanceClause {
+    let start = structDeclaration.name.positionAfterSkippingLeadingTrivia
+    let end = inheritanceClause.endPositionBeforeTrailingTrivia
+    ranges.append(start..<end)
+  }
+
+  ranges.append(structDeclaration.trimmedRange)
 
   return ranges
 }
