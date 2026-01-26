@@ -128,8 +128,9 @@ private func calculateRangesFor(
   case .forStmt(let forStatement):
     return calculateRangesInside(forStatement: forStatement)
 
-  case .patternBindingList, .initializerClause, .memberAccessExpr, .matchingPatternCondition,
-    .exprList, .accessorDeclList, .functionParameterClause, .functionEffectSpecifiers, .switchCaseLabel, .switchCaseList, .inheritanceClause, .inheritedType:
+  case .patternBindingList, .initializerClause, .memberAccessExpr, .matchingPatternCondition, .exprList,
+    .accessorDeclList, .functionParameterClause, .functionEffectSpecifiers, .switchCaseLabel, .switchCaseList,
+    .inheritanceClause, .inheritedType, .memberBlockItemList, .memberBlock:
     return []
 
   default:
@@ -214,7 +215,7 @@ private func calculateRangesInside(
     ranges.append(contentsOf: calculateRangesInside(labeledExpression: lastArgument))
     ranges.append(functionCall.arguments.trimmedRange)
     ranges.append(functionCall.trimmedRange)
-    
+
     return ranges
   }
 
@@ -241,7 +242,8 @@ private func calculateRangesInside(
       functionDeclaration.name.positionAfterSkippingLeadingTrivia..<genericClause.endPositionBeforeTrailingTrivia
     )
   } else if functionDeclaration.signature.parameterClause.rightParen.trimmedRange.contains(position),
-  let lastArgument = functionDeclaration.signature.parameterClause.parameters.last {
+    let lastArgument = functionDeclaration.signature.parameterClause.parameters.last
+  {
     // special case for when the cursor is directly before the closing paren, like this: `a: Int|)`
     ranges.append(lastArgument.type.trimmedRange)
     // using this position is a bit of a hack, but it is needed as the calculateRangesInside() function
@@ -366,7 +368,10 @@ private func calculateRangesInside(closureSignature: ClosureSignatureSyntax) -> 
   return ranges
 }
 
-private func calculateRangesInside(classDeclaration: ClassDeclSyntax, position: AbsolutePosition) -> [Range<AbsolutePosition>] {
+private func calculateRangesInside(
+  classDeclaration: ClassDeclSyntax,
+  position: AbsolutePosition
+) -> [Range<AbsolutePosition>] {
   var ranges: [Range<AbsolutePosition>] = []
 
   if classDeclaration.name.trimmedRange.contains(position) {
@@ -384,7 +389,10 @@ private func calculateRangesInside(classDeclaration: ClassDeclSyntax, position: 
   return ranges
 }
 
-private func calculateRangesInside(structDeclaration: StructDeclSyntax, position: AbsolutePosition) -> [Range<AbsolutePosition>] {
+private func calculateRangesInside(
+  structDeclaration: StructDeclSyntax,
+  position: AbsolutePosition
+) -> [Range<AbsolutePosition>] {
   var ranges: [Range<AbsolutePosition>] = []
 
   if structDeclaration.name.trimmedRange.contains(position) {
@@ -496,6 +504,6 @@ private func calculateRangesInside(codeBlock: CodeBlockSyntax) -> [Range<Absolut
 private func calculateRangesInside(forStatement: ForStmtSyntax) -> [Range<AbsolutePosition>] {
   return [
     forStatement.pattern.positionAfterSkippingLeadingTrivia..<forStatement.sequence.endPositionBeforeTrailingTrivia,
-    forStatement.trimmedRange
+    forStatement.trimmedRange,
   ]
 }
