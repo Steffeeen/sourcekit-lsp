@@ -119,6 +119,9 @@ private func calculateRangesFor(
   case .codeBlock(let codeBlock):
     return calculateRangesInside(codeBlock: codeBlock)
 
+  case .forStmt(let forStatement):
+    return calculateRangesInside(forStatement: forStatement)
+
   case .patternBindingList, .initializerClause, .memberAccessExpr, .matchingPatternCondition,
     .exprList, .accessorDeclList, .functionParameterClause, .functionEffectSpecifiers, .switchCaseLabel, .switchCaseList:
     return []
@@ -446,4 +449,11 @@ private func calculateRangesInside(codeBlock: CodeBlockSyntax) -> [Range<Absolut
   }
 
   return []
+}
+
+private func calculateRangesInside(forStatement: ForStmtSyntax) -> [Range<AbsolutePosition>] {
+  return [
+    forStatement.pattern.positionAfterSkippingLeadingTrivia..<forStatement.sequence.endPositionBeforeTrailingTrivia,
+    forStatement.trimmedRange
+  ]
 }
