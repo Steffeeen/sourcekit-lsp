@@ -120,7 +120,7 @@ private func calculateRangesFor(
     return calculateRangesInside(codeBlock: codeBlock)
 
   case .patternBindingList, .initializerClause, .memberAccessExpr, .matchingPatternCondition,
-    .exprList, .accessorDeclList, .functionParameterClause, .functionEffectSpecifiers:
+    .exprList, .accessorDeclList, .functionParameterClause, .functionEffectSpecifiers, .switchCaseLabel, .switchCaseList:
     return []
 
   default:
