@@ -119,6 +119,9 @@ private func calculateRangesFor(
   case .protocolDecl(let protocolDeclaration):
     return calculateRangesInside(protocolDeclaration: protocolDeclaration, position: position)
 
+  case .extensionDecl(let extensionDeclaration):
+    return calculateRangesInside(extensionDeclaration: extensionDeclaration)
+
   case .enumCaseParameter(let enumParameter):
     return calculateRangesInside(enumParameter: enumParameter, position: position)
 
@@ -419,7 +422,10 @@ private func calculateRangesInside(
   return ranges
 }
 
-private func calculateRangesInside(protocolDeclaration: ProtocolDeclSyntax, position: AbsolutePosition) -> [Range<AbsolutePosition>] {
+private func calculateRangesInside(
+  protocolDeclaration: ProtocolDeclSyntax,
+  position: AbsolutePosition
+) -> [Range<AbsolutePosition>] {
   var ranges: [Range<AbsolutePosition>] = []
 
   if protocolDeclaration.name.trimmedRange.contains(position) {
@@ -433,6 +439,28 @@ private func calculateRangesInside(protocolDeclaration: ProtocolDeclSyntax, posi
   }
 
   ranges.append(protocolDeclaration.trimmedRange)
+
+  return ranges
+}
+
+private func calculateRangesInside(extensionDeclaration: ExtensionDeclSyntax) -> [Range<AbsolutePosition>] {
+  var ranges: [Range<AbsolutePosition>] = []
+
+  if let inheritanceClause = extensionDeclaration.inheritanceClause {
+    let start = extensionDeclaration.extendedType.positionAfterSkippingLeadingTrivia
+    let end = inheritanceClause.endPositionBeforeTrailingTrivia
+    ranges.append(start..<end)
+
+    if let whereClause = extensionDeclaration.genericWhereClause {
+      ranges.append(start..<whereClause.endPositionBeforeTrailingTrivia)
+    }
+  } else if let whereClause = extensionDeclaration.genericWhereClause {
+    let start = extensionDeclaration.extendedType.positionAfterSkippingLeadingTrivia
+    let end = whereClause.endPositionBeforeTrailingTrivia
+    ranges.append(start..<end)
+  }
+
+  ranges.append(extensionDeclaration.trimmedRange)
 
   return ranges
 }
@@ -579,7 +607,10 @@ private func calculateRangesInside(forStatement: ForStmtSyntax) -> [Range<Absolu
   ]
 }
 
-private func calculateRangesInside(associatedTypeDeclaration: AssociatedTypeDeclSyntax, position: AbsolutePosition) -> [Range<AbsolutePosition>] {
+private func calculateRangesInside(
+  associatedTypeDeclaration: AssociatedTypeDeclSyntax,
+  position: AbsolutePosition
+) -> [Range<AbsolutePosition>] {
   var ranges: [Range<AbsolutePosition>] = []
   if associatedTypeDeclaration.name.trimmedRange.contains(position) {
     ranges.append(associatedTypeDeclaration.name.trimmedRange)
