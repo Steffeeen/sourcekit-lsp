@@ -143,7 +143,10 @@ private func calculateRangesFor(
   case .operatorDecl(let operatorDeclaration):
     return calculateRangesInside(operatorDeclaration: operatorDeclaration, position: position)
 
-  case .patternBindingList, .initializerClause, .memberAccessExpr, .matchingPatternCondition, .exprList,
+  case .memberAccessExpr(let memberAccess):
+    return calculateRangesInside(memberAccess: memberAccess)
+
+  case .patternBindingList, .initializerClause, .matchingPatternCondition, .exprList,
     .accessorDeclList, .functionParameterClause, .functionEffectSpecifiers, .switchCaseLabel, .switchCaseList,
     .inheritanceClause, .inheritedType, .memberBlockItemList, .memberBlock, .enumCaseParameterClause:
     return []
@@ -638,4 +641,12 @@ private func calculateRangesInside(
   }
 
   return [operatorDeclaration.trimmedRange]
+}
+
+private func calculateRangesInside(memberAccess: MemberAccessExprSyntax) -> [Range<AbsolutePosition>] {
+  return if memberAccess.parent?.is(FunctionCallExprSyntax.self) == true {
+    []
+  } else {
+    [memberAccess.trimmedRange]
+  }
 }
