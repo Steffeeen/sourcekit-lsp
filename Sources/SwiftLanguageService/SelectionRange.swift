@@ -140,6 +140,9 @@ private func calculateRangesFor(
   case .associatedTypeDecl(let associatedTypeDeclaration):
     return calculateRangesInside(associatedTypeDeclaration: associatedTypeDeclaration, position: position)
 
+  case .operatorDecl(let operatorDeclaration):
+    return calculateRangesInside(operatorDeclaration: operatorDeclaration, position: position)
+
   case .patternBindingList, .initializerClause, .memberAccessExpr, .matchingPatternCondition, .exprList,
     .accessorDeclList, .functionParameterClause, .functionEffectSpecifiers, .switchCaseLabel, .switchCaseList,
     .inheritanceClause, .inheritedType, .memberBlockItemList, .memberBlock, .enumCaseParameterClause:
@@ -624,4 +627,15 @@ private func calculateRangesInside(
 
   ranges.append(associatedTypeDeclaration.trimmedRange)
   return ranges
+}
+
+private func calculateRangesInside(
+  operatorDeclaration: OperatorDeclSyntax,
+  position: AbsolutePosition
+) -> [Range<AbsolutePosition>] {
+  if operatorDeclaration.name.trimmedRange.contains(position) {
+    return [operatorDeclaration.name.trimmedRange, operatorDeclaration.trimmedRange]
+  }
+
+  return [operatorDeclaration.trimmedRange]
 }
