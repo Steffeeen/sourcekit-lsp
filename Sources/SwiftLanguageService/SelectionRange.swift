@@ -146,6 +146,9 @@ private func calculateRangesFor(
   case .memberAccessExpr(let memberAccess):
     return calculateRangesInside(memberAccess: memberAccess)
 
+  case .identifierType(let identifierType):
+    return calculateRangesInside(identifierType: identifierType)
+
   case .availabilityArgument(let availabilityArgument):
     return calculateRangesInside(availabilityArgument: availabilityArgument)
 
@@ -653,6 +656,15 @@ private func calculateRangesInside(memberAccess: MemberAccessExprSyntax) -> [Ran
   } else {
     [memberAccess.trimmedRange]
   }
+}
+
+private func calculateRangesInside(identifierType: IdentifierTypeSyntax) -> [Range<AbsolutePosition>] {
+  if identifierType.parent?.is(AttributeSyntax.self) == true {
+    // for attributes we don't want to create a range for just the attribute but rather always include the `@`
+    return []
+  }
+
+  return [identifierType.trimmedRange]
 }
 
 private func calculateRangesInside(availabilityArgument: AvailabilityArgumentSyntax) -> [Range<AbsolutePosition>] {
