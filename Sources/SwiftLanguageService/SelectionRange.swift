@@ -116,6 +116,9 @@ private func calculateRangesFor(
   case .structDecl(let structDeclaration):
     return calculateRangesInside(structDeclaration: structDeclaration, position: position)
 
+  case .enumCaseParameter(let enumParameter):
+    return calculateRangesInside(enumParameter: enumParameter, position: position)
+
   case .sequenceExpr(let sequenceExpression):
     return calculateRangesInside(sequenceExpression: sequenceExpression, position: position)
 
@@ -130,7 +133,7 @@ private func calculateRangesFor(
 
   case .patternBindingList, .initializerClause, .memberAccessExpr, .matchingPatternCondition, .exprList,
     .accessorDeclList, .functionParameterClause, .functionEffectSpecifiers, .switchCaseLabel, .switchCaseList,
-    .inheritanceClause, .inheritedType, .memberBlockItemList, .memberBlock:
+    .inheritanceClause, .inheritedType, .memberBlockItemList, .memberBlock, .enumCaseParameterClause:
     return []
 
   default:
@@ -406,6 +409,50 @@ private func calculateRangesInside(
   }
 
   ranges.append(structDeclaration.trimmedRange)
+
+  return ranges
+}
+
+private func calculateRangesInside(
+  enumParameter: EnumCaseParameterSyntax,
+  position: AbsolutePosition
+) -> [Range<AbsolutePosition>] {
+  // this implementation is really similar to the one for FunctionParameterSyntax,
+  // except that we don't have to deal with ellipses and have to deal with unlabeled parameters
+  let start = enumParameter.positionAfterSkippingLeadingTrivia
+  let end =
+    if let comma = enumParameter.trailingComma {
+      comma.position
+    } else {
+      enumParameter.endPositionBeforeTrailingTrivia
+    }
+  let rangeWithoutComma = start..<end
+
+  if enumParameter.type.trimmedRange.contains(position) {
+    return [rangeWithoutComma]
+  }
+
+  if let defaultValue = enumParameter.defaultValue, defaultValue.trimmedRange.contains(position) {
+    return [rangeWithoutComma]
+  }
+
+  var ranges: [Range<AbsolutePosition>] = []
+
+  if let firstName = enumParameter.firstName {
+    if let secondName = enumParameter.secondName {
+      let range = firstName.positionAfterSkippingLeadingTrivia..<secondName.endPositionBeforeTrailingTrivia
+      if firstName.trimmedRange.contains(position) {
+        ranges.append(firstName.trimmedRange)
+      } else if secondName.trimmedRange.contains(position) {
+        ranges.append(secondName.trimmedRange)
+      }
+      ranges.append(range)
+    } else {
+      ranges.append(firstName.trimmedRange)
+    }
+  }
+
+  ranges.append(rangeWithoutComma)
 
   return ranges
 }
