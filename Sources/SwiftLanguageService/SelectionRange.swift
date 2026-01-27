@@ -409,6 +409,12 @@ private func calculateRangesInside(
 
   if structDeclaration.name.trimmedRange.contains(position) {
     ranges.append(structDeclaration.name.trimmedRange)
+  } else if let genericClause = structDeclaration.genericParameterClause,
+    genericClause.trimmedRange.contains(position)
+  {
+    let start = structDeclaration.name.positionAfterSkippingLeadingTrivia
+    let end = genericClause.endPositionBeforeTrailingTrivia
+    ranges.append(start..<end)
   }
 
   if let inheritanceClause = structDeclaration.inheritanceClause {
