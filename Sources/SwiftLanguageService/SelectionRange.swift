@@ -89,6 +89,9 @@ private func calculateRangesFor(
   case .functionCallExpr(let functionCall):
     return calculateRangesInside(functionCall: functionCall, position: position)
 
+  case .subscriptCallExpr(let subscriptCall):
+    return calculateRangesInside(subscriptCall: subscriptCall, position: position)
+
   case .labeledExpr(let labeledExpression):
     return calculateRangesInside(labeledExpression: labeledExpression)
 
@@ -246,6 +249,19 @@ private func calculateRangesInside(
 
   // the default case: just create a range for the function call node
   return [functionCall.trimmedRange]
+}
+
+private func calculateRangesInside(
+  subscriptCall: SubscriptCallExprSyntax,
+  position: AbsolutePosition
+) -> [Range<AbsolutePosition>] {
+  if subscriptCall.arguments.trimmedRange.contains(position) {
+    let start = subscriptCall.leftSquare.positionAfterSkippingLeadingTrivia
+    let end = subscriptCall.rightSquare.endPositionBeforeTrailingTrivia
+    return [start..<end, subscriptCall.trimmedRange]
+  }
+
+  return [subscriptCall.trimmedRange]
 }
 
 private func calculateRangesInside(labeledExpression: LabeledExprSyntax) -> [Range<AbsolutePosition>] {
