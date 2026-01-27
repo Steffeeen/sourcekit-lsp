@@ -116,6 +116,9 @@ private func calculateRangesFor(
   case .structDecl(let structDeclaration):
     return calculateRangesInside(structDeclaration: structDeclaration, position: position)
 
+  case .protocolDecl(let protocolDeclaration):
+    return calculateRangesInside(protocolDeclaration: protocolDeclaration, position: position)
+
   case .enumCaseParameter(let enumParameter):
     return calculateRangesInside(enumParameter: enumParameter, position: position)
 
@@ -412,6 +415,24 @@ private func calculateRangesInside(
   }
 
   ranges.append(structDeclaration.trimmedRange)
+
+  return ranges
+}
+
+private func calculateRangesInside(protocolDeclaration: ProtocolDeclSyntax, position: AbsolutePosition) -> [Range<AbsolutePosition>] {
+  var ranges: [Range<AbsolutePosition>] = []
+
+  if protocolDeclaration.name.trimmedRange.contains(position) {
+    ranges.append(protocolDeclaration.name.trimmedRange)
+  }
+
+  if let inheritanceClause = protocolDeclaration.inheritanceClause {
+    let start = protocolDeclaration.name.positionAfterSkippingLeadingTrivia
+    let end = inheritanceClause.endPositionBeforeTrailingTrivia
+    ranges.append(start..<end)
+  }
+
+  ranges.append(protocolDeclaration.trimmedRange)
 
   return ranges
 }
