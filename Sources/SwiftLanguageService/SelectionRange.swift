@@ -148,7 +148,8 @@ private func calculateRangesFor(
 
   case .patternBindingList, .initializerClause, .matchingPatternCondition, .exprList,
     .accessorDeclList, .functionParameterClause, .functionEffectSpecifiers, .switchCaseLabel, .switchCaseList,
-    .inheritanceClause, .inheritedType, .memberBlockItemList, .memberBlock, .enumCaseParameterClause:
+    .inheritanceClause, .inheritedType, .memberBlockItemList, .memberBlock, .enumCaseParameterClause,
+    .optionalChainingExpr:
     return []
 
   default:
