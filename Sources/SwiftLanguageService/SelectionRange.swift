@@ -146,6 +146,9 @@ private func calculateRangesFor(
   case .memberAccessExpr(let memberAccess):
     return calculateRangesInside(memberAccess: memberAccess)
 
+  case .availabilityArgument(let availabilityArgument):
+    return calculateRangesInside(availabilityArgument: availabilityArgument)
+
   case .patternBindingList, .initializerClause, .matchingPatternCondition, .exprList,
     .accessorDeclList, .functionParameterClause, .functionEffectSpecifiers, .switchCaseLabel, .switchCaseList,
     .inheritanceClause, .inheritedType, .memberBlockItemList, .memberBlock, .enumCaseParameterClause,
@@ -650,4 +653,14 @@ private func calculateRangesInside(memberAccess: MemberAccessExprSyntax) -> [Ran
   } else {
     [memberAccess.trimmedRange]
   }
+}
+
+private func calculateRangesInside(availabilityArgument: AvailabilityArgumentSyntax) -> [Range<AbsolutePosition>] {
+  if let trailingComma = availabilityArgument.trailingComma {
+    let start = availabilityArgument.positionAfterSkippingLeadingTrivia
+    let end = trailingComma.positionAfterSkippingLeadingTrivia
+    return [start..<end]
+  }
+
+  return [availabilityArgument.trimmedRange]
 }
