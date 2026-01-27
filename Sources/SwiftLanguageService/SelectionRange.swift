@@ -131,6 +131,9 @@ private func calculateRangesFor(
   case .forStmt(let forStatement):
     return calculateRangesInside(forStatement: forStatement)
 
+  case .associatedTypeDecl(let associatedTypeDeclaration):
+    return calculateRangesInside(associatedTypeDeclaration: associatedTypeDeclaration, position: position)
+
   case .patternBindingList, .initializerClause, .memberAccessExpr, .matchingPatternCondition, .exprList,
     .accessorDeclList, .functionParameterClause, .functionEffectSpecifiers, .switchCaseLabel, .switchCaseList,
     .inheritanceClause, .inheritedType, .memberBlockItemList, .memberBlock, .enumCaseParameterClause:
@@ -553,4 +556,14 @@ private func calculateRangesInside(forStatement: ForStmtSyntax) -> [Range<Absolu
     forStatement.pattern.positionAfterSkippingLeadingTrivia..<forStatement.sequence.endPositionBeforeTrailingTrivia,
     forStatement.trimmedRange,
   ]
+}
+
+private func calculateRangesInside(associatedTypeDeclaration: AssociatedTypeDeclSyntax, position: AbsolutePosition) -> [Range<AbsolutePosition>] {
+  var ranges: [Range<AbsolutePosition>] = []
+  if associatedTypeDeclaration.name.trimmedRange.contains(position) {
+    ranges.append(associatedTypeDeclaration.name.trimmedRange)
+  }
+
+  ranges.append(associatedTypeDeclaration.trimmedRange)
+  return ranges
 }
