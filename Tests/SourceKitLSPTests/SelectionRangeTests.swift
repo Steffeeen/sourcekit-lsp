@@ -2325,13 +2325,43 @@ private func testSelectionRange(
   currentRange = range
   while rangeIndex < expected.count {
     let selectString = getStringOfSelectionRange(lineTable: lineTable, selectionRange: currentRange)
-    #expect(selectString == expected[rangeIndex], sourceLocation: sourceLocation)
+    #expect(
+      selectString == expected[rangeIndex],
+      selectionRangeMismatchMessage(
+        rangeIndex: rangeIndex,
+        expected: expected[rangeIndex],
+        actual: String(selectString)
+      ),
+      sourceLocation: sourceLocation
+    )
 
     guard let parent = currentRange.parent else {
       break
     }
     currentRange = parent
     rangeIndex += 1
+  }
+}
+
+private func selectionRangeMismatchMessage(rangeIndex: Int, expected: String, actual: String) -> Comment {
+  let isMultiline = expected.contains("\n") || actual.contains("\n")
+
+  if isMultiline {
+    return """
+      Selection range mismatch at index \(rangeIndex):
+
+      Expected:
+      \(expected)
+
+      Actual:
+      \(actual)
+      """
+  } else {
+    return """
+      Selection range mismatch at index \(rangeIndex):
+        Expected: \(expected)
+        Actual:   \(actual)
+      """
   }
 }
 
