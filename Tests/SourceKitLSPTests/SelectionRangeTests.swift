@@ -1026,7 +1026,6 @@ struct SelectionRangeTests {
           """,
         expectedSelections: [
           "MyClass",
-          "MyClass: SuperClass, Protocol1",
           """
           class MyClass: SuperClass, Protocol1 {
             var property: Int = 0
@@ -1046,7 +1045,7 @@ struct SelectionRangeTests {
         expectedSelections: [
           "SuperClass",
           "SuperClass, Protocol1, Protocol2",
-          "MyClass: SuperClass, Protocol1, Protocol2",
+          ": SuperClass, Protocol1, Protocol2",
           """
           class MyClass: SuperClass, Protocol1, Protocol2 {
             var property: Int = 0
@@ -1291,7 +1290,7 @@ struct SelectionRangeTests {
           """,
         expectedSelections: [
           "CustomStringConvertible",
-          "TextRepresentable: CustomStringConvertible",
+          ": CustomStringConvertible",
           """
           protocol TextRepresentable: CustomStringConvertible {
             var text: String { get }
@@ -1311,7 +1310,6 @@ struct SelectionRangeTests {
           """,
         expectedSelections: [
           "TextRepresentable",
-          "TextRepresentable: CustomStringConvertible",
           """
           protocol TextRepresentable: CustomStringConvertible {
             var text: String { get }
@@ -1331,7 +1329,7 @@ struct SelectionRangeTests {
         expectedSelections: [
           "CustomStringConvertible",
           "CustomStringConvertible, Protocol2, Protocol3",
-          "TextRepresentable: CustomStringConvertible, Protocol2, Protocol3",
+          ": CustomStringConvertible, Protocol2, Protocol3",
           """
           protocol TextRepresentable: CustomStringConvertible, Protocol2, Protocol3 {
             var text: String { get }
@@ -1398,7 +1396,6 @@ struct SelectionRangeTests {
           """,
         expectedSelections: [
           "Array",
-          "Array where Element == String",
           """
           extension Array where Element == String {
             var description: String { return "" }
@@ -1418,8 +1415,7 @@ struct SelectionRangeTests {
           """,
         expectedSelections: [
           "CustomStringConvertible",
-          "Array: CustomStringConvertible",
-          "Array: CustomStringConvertible where Element: CustomStringConvertible",
+          ": CustomStringConvertible",
           """
           extension Array: CustomStringConvertible where Element: CustomStringConvertible {
             var description: String { return "" }

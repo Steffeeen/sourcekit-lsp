@@ -83,6 +83,38 @@ private func calculateRangesFor(
 ) -> [Range<AbsolutePosition>] {
   switch node.as(SyntaxEnum.self) {
 
+  case .classDecl(let classDeclaration):
+    return calculateRangesForDeclaration(
+      position: position,
+      declaration: DeclSyntax(classDeclaration),
+      nameOrType: Syntax(classDeclaration.name),
+      genericParameters: classDeclaration.genericParameterClause
+    )
+
+  case .structDecl(let structDeclaration):
+    return calculateRangesForDeclaration(
+      position: position,
+      declaration: DeclSyntax(structDeclaration),
+      nameOrType: Syntax(structDeclaration.name),
+      genericParameters: structDeclaration.genericParameterClause
+    )
+
+  case .protocolDecl(let protocolDeclaration):
+    return calculateRangesForDeclaration(
+      position: position,
+      declaration: DeclSyntax(protocolDeclaration),
+      nameOrType: Syntax(protocolDeclaration.name),
+      genericParameters: nil
+    )
+
+  case .extensionDecl(let extensionDeclaration):
+    return calculateRangesForDeclaration(
+      position: position,
+      declaration: DeclSyntax(extensionDeclaration),
+      nameOrType: Syntax(extensionDeclaration.extendedType),
+      genericParameters: nil
+    )
+
   case .stringSegment(let segment):
     return calculateRangesInside(stringSegment: segment, snapshot: snapshot, position: position)
 
@@ -112,18 +144,6 @@ private func calculateRangesFor(
 
   case .closureSignature(let closureSignature):
     return calculateRangesInside(closureSignature: closureSignature)
-
-  case .classDecl(let classDeclaration):
-    return calculateRangesInside(classDeclaration: classDeclaration, position: position)
-
-  case .structDecl(let structDeclaration):
-    return calculateRangesInside(structDeclaration: structDeclaration, position: position)
-
-  case .protocolDecl(let protocolDeclaration):
-    return calculateRangesInside(protocolDeclaration: protocolDeclaration, position: position)
-
-  case .extensionDecl(let extensionDeclaration):
-    return calculateRangesInside(extensionDeclaration: extensionDeclaration)
 
   case .enumCaseParameter(let enumParameter):
     return calculateRangesInside(enumParameter: enumParameter, position: position)
@@ -163,13 +183,36 @@ private func calculateRangesFor(
 
   case .patternBindingList, .initializerClause, .matchingPatternCondition, .exprList,
     .accessorDeclList, .functionParameterClause, .functionEffectSpecifiers, .switchCaseLabel, .switchCaseList,
-    .inheritanceClause, .inheritedType, .memberBlockItemList, .memberBlock, .enumCaseParameterClause,
+    .inheritedType, .memberBlockItemList, .memberBlock, .enumCaseParameterClause,
     .optionalChainingExpr, .tuplePatternElement, .arrayElement, .keyPathComponent, .keyPathComponentList:
     return []
 
   default:
     return [node.trimmedRange]
   }
+}
+
+private func calculateRangesForDeclaration(
+  position: AbsolutePosition,
+  declaration: DeclSyntax,
+  nameOrType: Syntax,
+  genericParameters: GenericParameterClauseSyntax?,
+) -> [Range<AbsolutePosition>] {
+  var ranges: [Range<AbsolutePosition>] = []
+
+  if nameOrType.trimmedRange.contains(position) {
+    ranges.append(nameOrType.trimmedRange)
+  } else if let genericParameters = genericParameters,
+    genericParameters.trimmedRange.contains(position)
+  {
+    let start = nameOrType.positionAfterSkippingLeadingTrivia
+    let end = genericParameters.endPositionBeforeTrailingTrivia
+    ranges.append(start..<end)
+  }
+
+  ranges.append(declaration.trimmedRange)
+
+  return ranges
 }
 
 private func calculateRangesInside(
@@ -425,97 +468,6 @@ private func calculateRangesInside(closureSignature: ClosureSignatureSyntax) -> 
     let end = closureExpression.statements.endPositionBeforeTrailingTrivia
     ranges.append(start..<end)
   }
-
-  return ranges
-}
-
-private func calculateRangesInside(
-  classDeclaration: ClassDeclSyntax,
-  position: AbsolutePosition
-) -> [Range<AbsolutePosition>] {
-  var ranges: [Range<AbsolutePosition>] = []
-
-  if classDeclaration.name.trimmedRange.contains(position) {
-    ranges.append(classDeclaration.name.trimmedRange)
-  }
-
-  if let inheritanceClause = classDeclaration.inheritanceClause {
-    let start = classDeclaration.name.positionAfterSkippingLeadingTrivia
-    let end = inheritanceClause.endPositionBeforeTrailingTrivia
-    ranges.append(start..<end)
-  }
-
-  ranges.append(classDeclaration.trimmedRange)
-
-  return ranges
-}
-
-private func calculateRangesInside(
-  structDeclaration: StructDeclSyntax,
-  position: AbsolutePosition
-) -> [Range<AbsolutePosition>] {
-  var ranges: [Range<AbsolutePosition>] = []
-
-  if structDeclaration.name.trimmedRange.contains(position) {
-    ranges.append(structDeclaration.name.trimmedRange)
-  } else if let genericClause = structDeclaration.genericParameterClause,
-    genericClause.trimmedRange.contains(position)
-  {
-    let start = structDeclaration.name.positionAfterSkippingLeadingTrivia
-    let end = genericClause.endPositionBeforeTrailingTrivia
-    ranges.append(start..<end)
-  }
-
-  if let inheritanceClause = structDeclaration.inheritanceClause {
-    let start = structDeclaration.name.positionAfterSkippingLeadingTrivia
-    let end = inheritanceClause.endPositionBeforeTrailingTrivia
-    ranges.append(start..<end)
-  }
-
-  ranges.append(structDeclaration.trimmedRange)
-
-  return ranges
-}
-
-private func calculateRangesInside(
-  protocolDeclaration: ProtocolDeclSyntax,
-  position: AbsolutePosition
-) -> [Range<AbsolutePosition>] {
-  var ranges: [Range<AbsolutePosition>] = []
-
-  if protocolDeclaration.name.trimmedRange.contains(position) {
-    ranges.append(protocolDeclaration.name.trimmedRange)
-  }
-
-  if let inheritanceClause = protocolDeclaration.inheritanceClause {
-    let start = protocolDeclaration.name.positionAfterSkippingLeadingTrivia
-    let end = inheritanceClause.endPositionBeforeTrailingTrivia
-    ranges.append(start..<end)
-  }
-
-  ranges.append(protocolDeclaration.trimmedRange)
-
-  return ranges
-}
-
-private func calculateRangesInside(extensionDeclaration: ExtensionDeclSyntax) -> [Range<AbsolutePosition>] {
-  var ranges: [Range<AbsolutePosition>] = []
-
-  if let inheritanceClause = extensionDeclaration.inheritanceClause {
-    let start = extensionDeclaration.extendedType.positionAfterSkippingLeadingTrivia
-    let end = inheritanceClause.endPositionBeforeTrailingTrivia
-    ranges.append(start..<end)
-
-    if let whereClause = extensionDeclaration.genericWhereClause {
-      ranges.append(start..<whereClause.endPositionBeforeTrailingTrivia)
-    }
-  } else if let whereClause = extensionDeclaration.genericWhereClause {
-    let start = extensionDeclaration.extendedType.positionAfterSkippingLeadingTrivia
-    let end = whereClause.endPositionBeforeTrailingTrivia
-    ranges.append(start..<end)
-  }
-
-  ranges.append(extensionDeclaration.trimmedRange)
 
   return ranges
 }
