@@ -32,7 +32,8 @@ extension SwiftLanguageService {
       if let selectionRange = computeSelectionRangeFor(
         position: absolutePosition,
         snapshot: snapshot,
-        initialNode: initialNode
+        initialNode: initialNode,
+        token: token
       ) {
         return selectionRange
       } else {
@@ -65,16 +66,14 @@ private func findIntuitiveToken(in sourceFile: SourceFileSyntax, at position: Ab
 private func computeSelectionRangeFor(
   position: AbsolutePosition,
   snapshot: DocumentSnapshot,
-  initialNode: Syntax
+  initialNode: Syntax,
+  token: TokenSyntax
 ) -> SelectionRange? {
   var ranges: [Range<AbsolutePosition>] = []
 
-  for node in sequence(first: initialNode, next: { $0.parent }) {
-    let rangesForNode = calculateRangesFor(node: node, snapshot: snapshot, position: position)
-
-    if rangesForNode.isEmpty {
-      continue
-    }
+  var child = Syntax(token)
+  while let parent = child.parent {
+    let rangesForNode = calculateRangesFor(node: parent, previousNode: child, snapshot: snapshot, position: position)
 
     for range in rangesForNode {
       if ranges.last == range {
@@ -84,6 +83,8 @@ private func computeSelectionRangeFor(
 
       ranges.append(range)
     }
+
+    child = parent
   }
 
   var selectionRange: SelectionRange? = nil
@@ -98,6 +99,7 @@ private func computeSelectionRangeFor(
 
 private func calculateRangesFor(
   node: Syntax,
+  previousNode: Syntax,
   snapshot: DocumentSnapshot,
   position: AbsolutePosition
 ) -> [Range<AbsolutePosition>] {
@@ -105,7 +107,7 @@ private func calculateRangesFor(
 
   case .classDecl(let classDeclaration):
     return calculateRangesForDeclaration(
-      position: position,
+      previousNode: previousNode,
       declaration: DeclSyntax(classDeclaration),
       nameOrType: Syntax(classDeclaration.name),
       genericParameters: classDeclaration.genericParameterClause
@@ -113,7 +115,7 @@ private func calculateRangesFor(
 
   case .structDecl(let structDeclaration):
     return calculateRangesForDeclaration(
-      position: position,
+      previousNode: previousNode,
       declaration: DeclSyntax(structDeclaration),
       nameOrType: Syntax(structDeclaration.name),
       genericParameters: structDeclaration.genericParameterClause
@@ -121,7 +123,7 @@ private func calculateRangesFor(
 
   case .protocolDecl(let protocolDeclaration):
     return calculateRangesForDeclaration(
-      position: position,
+      previousNode: previousNode,
       declaration: DeclSyntax(protocolDeclaration),
       nameOrType: Syntax(protocolDeclaration.name),
       genericParameters: nil
@@ -129,7 +131,7 @@ private func calculateRangesFor(
 
   case .extensionDecl(let extensionDeclaration):
     return calculateRangesForDeclaration(
-      position: position,
+      previousNode: previousNode,
       declaration: DeclSyntax(extensionDeclaration),
       nameOrType: Syntax(extensionDeclaration.extendedType),
       genericParameters: nil
@@ -139,37 +141,37 @@ private func calculateRangesFor(
     return calculateRangesInside(stringSegment: segment, snapshot: snapshot, position: position)
 
   case .functionCallExpr(let functionCall):
-    return calculateRangesInside(functionCall: functionCall, position: position)
+    return calculateRangesInside(functionCall: functionCall, previousNode: previousNode)
 
   case .subscriptCallExpr(let subscriptCall):
-    return calculateRangesInside(subscriptCall: subscriptCall, position: position)
+    return calculateRangesInside(subscriptCall: subscriptCall, previousNode: previousNode)
 
   case .labeledExpr(let labeledExpression):
-    return calculateRangesInside(labeledExpression: labeledExpression, position: position)
+    return calculateRangesInside(labeledExpression: labeledExpression, previousNode: previousNode)
 
   case .functionDecl(let functionDeclaration):
-    return calculateRangesInside(functionDeclaration: functionDeclaration, position: position)
+    return calculateRangesInside(functionDeclaration: functionDeclaration, previousNode: previousNode)
 
   case .genericParameterClause(let genericParameterClause):
-    return calculateRangesInside(genericParameterClause: genericParameterClause, position: position)
+    return calculateRangesInside(genericParameterClause: genericParameterClause, previousNode: previousNode)
 
   case .genericParameter(let genericParameter):
     return calculateRangesInside(genericParameter: genericParameter)
 
   case .functionParameter(let parameter):
-    return calculateRangesInside(parameter: parameter, position: position)
+    return calculateRangesInside(parameter: parameter, previousNode: previousNode)
 
   case .functionEffectSpecifiers(let effectSpecifiers):
-    return calculateRangesInside(effectSpecifiers: effectSpecifiers, position: position)
+    return calculateRangesInside(effectSpecifiers: effectSpecifiers, previousNode: previousNode)
 
   case .closureSignature(let closureSignature):
     return calculateRangesInside(closureSignature: closureSignature)
 
   case .enumCaseParameter(let enumParameter):
-    return calculateRangesInside(enumParameter: enumParameter, position: position)
+    return calculateRangesInside(enumParameter: enumParameter, previousNode: previousNode)
 
-  case .sequenceExpr(let sequenceExpression):
-    return calculateRangesInside(sequenceExpression: sequenceExpression, position: position)
+  case .exprList(let expressionList):
+    return calculateRangesInside(expressionList: expressionList, previousNode: previousNode)
 
   case .patternBinding(let patternBinding):
     return calculateRangesInside(patternBinding: patternBinding)
@@ -181,16 +183,16 @@ private func calculateRangesFor(
     return calculateRangesInside(forStatement: forStatement)
 
   case .associatedTypeDecl(let associatedTypeDeclaration):
-    return calculateRangesInside(associatedTypeDeclaration: associatedTypeDeclaration, position: position)
+    return calculateRangesInside(associatedTypeDeclaration: associatedTypeDeclaration, previousNode: previousNode)
 
   case .typeAliasDecl(let typeAliasDeclaration):
-    return calculateRangesInside(typeAliasDeclaration: typeAliasDeclaration, position: position)
+    return calculateRangesInside(typeAliasDeclaration: typeAliasDeclaration, previousNode: previousNode)
 
   case .dictionaryElement(let dictionaryElement):
     return calculateRangesInside(dictionaryElement: dictionaryElement)
 
   case .operatorDecl(let operatorDeclaration):
-    return calculateRangesInside(operatorDeclaration: operatorDeclaration, position: position)
+    return calculateRangesInside(operatorDeclaration: operatorDeclaration, previousNode: previousNode)
 
   case .memberAccessExpr(let memberAccess):
     return calculateRangesInside(memberAccess: memberAccess)
@@ -201,7 +203,7 @@ private func calculateRangesFor(
   case .availabilityArgument(let availabilityArgument):
     return calculateRangesInside(availabilityArgument: availabilityArgument)
 
-  case .patternBindingList, .initializerClause, .matchingPatternCondition, .exprList,
+  case .patternBindingList, .initializerClause, .matchingPatternCondition, .sequenceExpr,
     .accessorDeclList, .functionParameterClause, .functionSignature, .switchCaseLabel, .switchCaseList,
     .inheritedType, .memberBlockItemList, .memberBlock, .enumCaseParameterClause,
     .optionalChainingExpr, .tuplePatternElement, .arrayElement, .keyPathComponent, .keyPathComponentList:
@@ -213,17 +215,17 @@ private func calculateRangesFor(
 }
 
 private func calculateRangesForDeclaration(
-  position: AbsolutePosition,
+  previousNode: Syntax,
   declaration: DeclSyntax,
   nameOrType: Syntax,
   genericParameters: GenericParameterClauseSyntax?,
 ) -> [Range<AbsolutePosition>] {
   var ranges: [Range<AbsolutePosition>] = []
 
-  if nameOrType.trimmedRange.contains(position) {
+  if previousNode.id == nameOrType.id {
     ranges.append(nameOrType.trimmedRange)
   } else if let genericParameters = genericParameters,
-    genericParameters.trimmedRange.contains(position)
+    previousNode.id == genericParameters.id
   {
     let start = nameOrType.positionAfterSkippingLeadingTrivia
     let end = genericParameters.endPositionBeforeTrailingTrivia
@@ -277,12 +279,12 @@ private func calculateRangesInside(
 
 private func calculateRangesInside(
   functionCall: FunctionCallExprSyntax,
-  position: AbsolutePosition
+  previousNode: Syntax,
 ) -> [Range<AbsolutePosition>] {
   if let memberAccess = functionCall.calledExpression.as(MemberAccessExprSyntax.self),
     functionCall.parent?.as(ExpressionPatternSyntax.self) == nil,
-    functionCall.arguments.trimmedRange.contains(position)
-      || functionCall.trailingClosure?.trimmedRange.contains(position) ?? false
+    previousNode.id == functionCall.arguments.id
+      || previousNode.id == functionCall.trailingClosure?.id
   {
     // Special case for adding an extra range including the function name and parameters/trailing closures
     // this is needed for chained method calls
@@ -306,9 +308,9 @@ private func calculateRangesInside(
 
 private func calculateRangesInside(
   subscriptCall: SubscriptCallExprSyntax,
-  position: AbsolutePosition
+  previousNode: Syntax,
 ) -> [Range<AbsolutePosition>] {
-  if subscriptCall.arguments.trimmedRange.contains(position) {
+  if previousNode.id == subscriptCall.arguments.id {
     let start = subscriptCall.leftSquare.positionAfterSkippingLeadingTrivia
     let end = subscriptCall.rightSquare.endPositionBeforeTrailingTrivia
     return [start..<end, subscriptCall.trimmedRange]
@@ -319,12 +321,12 @@ private func calculateRangesInside(
 
 private func calculateRangesInside(
   labeledExpression: LabeledExprSyntax,
-  position: AbsolutePosition
+  previousNode: Syntax,
 ) -> [Range<AbsolutePosition>] {
   var ranges: [Range<AbsolutePosition>] = []
 
   if let label = labeledExpression.label,
-    label.trimmedRange.contains(position)
+    previousNode.id == label.id
   {
 
     ranges.append(label.trimmedRange)
@@ -377,7 +379,7 @@ private func calculateRangesInside(genericParameter: GenericParameterSyntax) -> 
 
 private func calculateRangesInside(
   parameter: FunctionParameterSyntax,
-  position: AbsolutePosition
+  previousNode: Syntax,
 ) -> [Range<AbsolutePosition>] {
   let start = parameter.positionAfterSkippingLeadingTrivia
   let end =
@@ -388,7 +390,7 @@ private func calculateRangesInside(
     }
   let rangeWithoutComma = start..<end
 
-  if parameter.type.trimmedRange.contains(position) {
+  if previousNode.id == parameter.type.id {
     if let ellipsis = parameter.ellipsis {
       // add an additional range for selecting the ellipsis of variadic parameters
       let range = parameter.type.positionAfterSkippingLeadingTrivia..<ellipsis.endPositionBeforeTrailingTrivia
@@ -397,7 +399,7 @@ private func calculateRangesInside(
     return [rangeWithoutComma]
   }
 
-  if let defaultValue = parameter.defaultValue, defaultValue.trimmedRange.contains(position) {
+  if let defaultValue = parameter.defaultValue, previousNode.id == defaultValue.id {
     return [rangeWithoutComma]
   }
 
@@ -405,9 +407,9 @@ private func calculateRangesInside(
 
   if let secondName = parameter.secondName {
     let range = firstNameRange.lowerBound..<secondName.endPositionBeforeTrailingTrivia
-    if parameter.firstName.trimmedRange.contains(position) {
+    if previousNode.id == parameter.firstName.id {
       return [firstNameRange, range, rangeWithoutComma]
-    } else if secondName.trimmedRange.contains(position) {
+    } else if previousNode.id == secondName.id {
       return [secondName.trimmedRange, range, rangeWithoutComma]
     }
   }
@@ -417,11 +419,11 @@ private func calculateRangesInside(
 
 private func calculateRangesInside(
   effectSpecifiers: FunctionEffectSpecifiersSyntax,
-  position: AbsolutePosition
+  previousNode: Syntax,
 ) -> [Range<AbsolutePosition>] {
   var ranges: [Range<AbsolutePosition>] = []
   if let asyncSpecifier = effectSpecifiers.asyncSpecifier,
-    asyncSpecifier.trimmedRange.contains(position)
+    previousNode.id == asyncSpecifier.id
   {
     // explicitly add a range for the async keyword token as we directly skip to the parent of the token that contained the cursor
     ranges.append(asyncSpecifier.trimmedRange)
@@ -447,7 +449,7 @@ private func calculateRangesInside(closureSignature: ClosureSignatureSyntax) -> 
 
 private func calculateRangesInside(
   enumParameter: EnumCaseParameterSyntax,
-  position: AbsolutePosition
+  previousNode: Syntax,
 ) -> [Range<AbsolutePosition>] {
   // this implementation is really similar to the one for FunctionParameterSyntax,
   // except that we don't have to deal with ellipses and have to deal with unlabeled parameters
@@ -460,11 +462,11 @@ private func calculateRangesInside(
     }
   let rangeWithoutComma = start..<end
 
-  if enumParameter.type.trimmedRange.contains(position) {
+  if previousNode.id == enumParameter.type.id {
     return [rangeWithoutComma]
   }
 
-  if let defaultValue = enumParameter.defaultValue, defaultValue.trimmedRange.contains(position) {
+  if let defaultValue = enumParameter.defaultValue, previousNode.id == defaultValue.id {
     return [rangeWithoutComma]
   }
 
@@ -473,9 +475,9 @@ private func calculateRangesInside(
   if let firstName = enumParameter.firstName {
     if let secondName = enumParameter.secondName {
       let range = firstName.positionAfterSkippingLeadingTrivia..<secondName.endPositionBeforeTrailingTrivia
-      if firstName.trimmedRange.contains(position) {
+      if previousNode.id == firstName.id {
         ranges.append(firstName.trimmedRange)
-      } else if secondName.trimmedRange.contains(position) {
+      } else if previousNode.id == secondName.id {
         ranges.append(secondName.trimmedRange)
       }
       ranges.append(range)
@@ -490,17 +492,25 @@ private func calculateRangesInside(
 }
 
 private func calculateRangesInside(
-  sequenceExpression: SequenceExprSyntax,
-  position: AbsolutePosition
+  expressionList: ExprListSyntax,
+  previousNode: Syntax,
 ) -> [Range<AbsolutePosition>] {
+  guard let sequenceExpression = expressionList.parent?.as(SequenceExprSyntax.self) else {
+    return [expressionList.trimmedRange]
+  }
+
   let table = OperatorTable.standardOperators
   guard let foldedTree = try? table.foldSingle(sequenceExpression) else { return [] }
 
-  let positionInFoldedTree = position - SourceLength(utf8Length: sequenceExpression.position.utf8Offset)
+  let startInTree =
+    previousNode.positionAfterSkippingLeadingTrivia - SourceLength(utf8Length: sequenceExpression.position.utf8Offset)
+  let endInTree =
+    previousNode.endPositionBeforeTrailingTrivia - SourceLength(utf8Length: sequenceExpression.position.utf8Offset)
 
   let operandNode = findCorrespondingOperandIn(
     foldedTree: Syntax(foldedTree),
-    positionInFoldedTree: positionInFoldedTree
+    operandStart: startInTree,
+    operandEnd: endInTree
   )
 
   var ranges: [Range<AbsolutePosition>] = []
@@ -520,15 +530,18 @@ private func calculateRangesInside(
   }
 
   return ranges
-
 }
 
-private func findCorrespondingOperandIn(foldedTree: Syntax, positionInFoldedTree: AbsolutePosition) -> Syntax {
+private func findCorrespondingOperandIn(
+  foldedTree: Syntax,
+  operandStart: AbsolutePosition,
+  operandEnd: AbsolutePosition
+) -> Syntax {
   var current = foldedTree
   while true {
     guard
       let child = current.children(viewMode: .sourceAccurate).first(where: {
-        $0.position <= positionInFoldedTree && positionInFoldedTree < $0.endPosition
+        $0.position <= operandStart && operandEnd <= $0.endPosition
       })
     else {
       return current
@@ -589,10 +602,10 @@ private func calculateRangesInside(forStatement: ForStmtSyntax) -> [Range<Absolu
 
 private func calculateRangesInside(
   associatedTypeDeclaration: AssociatedTypeDeclSyntax,
-  position: AbsolutePosition
+  previousNode: Syntax,
 ) -> [Range<AbsolutePosition>] {
   var ranges: [Range<AbsolutePosition>] = []
-  if associatedTypeDeclaration.name.trimmedRange.contains(position) {
+  if previousNode.id == associatedTypeDeclaration.name.id {
     ranges.append(associatedTypeDeclaration.name.trimmedRange)
   }
 
@@ -602,11 +615,11 @@ private func calculateRangesInside(
 
 private func calculateRangesInside(
   typeAliasDeclaration: TypeAliasDeclSyntax,
-  position: AbsolutePosition
+  previousNode: Syntax,
 ) -> [Range<AbsolutePosition>] {
   var ranges: [Range<AbsolutePosition>] = []
 
-  if typeAliasDeclaration.name.trimmedRange.contains(position) {
+  if previousNode.id == typeAliasDeclaration.name.id {
     ranges.append(typeAliasDeclaration.name.trimmedRange)
   }
 
@@ -628,9 +641,9 @@ private func calculateRangesInside(dictionaryElement: DictionaryElementSyntax) -
 
 private func calculateRangesInside(
   operatorDeclaration: OperatorDeclSyntax,
-  position: AbsolutePosition
+  previousNode: Syntax,
 ) -> [Range<AbsolutePosition>] {
-  if operatorDeclaration.name.trimmedRange.contains(position) {
+  if previousNode.id == operatorDeclaration.name.id {
     return [operatorDeclaration.name.trimmedRange, operatorDeclaration.trimmedRange]
   }
 
