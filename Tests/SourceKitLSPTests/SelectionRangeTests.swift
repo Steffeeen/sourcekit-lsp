@@ -695,7 +695,6 @@ struct SelectionRangeTests {
       try await testSelectionRange(
         markedSource: "func test<T1️⃣,>() {}",
         expectedSelections: [
-          "T",
           "T,",
           "<T,>",
           "test<T,>",

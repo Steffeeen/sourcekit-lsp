@@ -364,6 +364,13 @@ private func calculateRangesInside(
 }
 
 private func calculateRangesInside(genericParameter: GenericParameterSyntax) -> [Range<AbsolutePosition>] {
+  if let parameterList = genericParameter.parent?.as(GenericParameterListSyntax.self),
+    parameterList.count == 1
+  {
+    // include a possible trailing comma if the generic parameter is the only one in the generic clause
+    return [genericParameter.trimmedRange]
+  }
+
   let end = genericParameter.trailingComma?.position ?? genericParameter.endPositionBeforeTrailingTrivia
   return [genericParameter.positionAfterSkippingLeadingTrivia..<end]
 }
