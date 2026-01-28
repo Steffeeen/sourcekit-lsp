@@ -1446,6 +1446,18 @@ struct SelectionRangeTests {
     }
 
     @Test
+    func testGenericFunction() async throws {
+      try await testSelectionRange(
+        markedSource: "func te1️⃣st<T>() {}",
+        expectedSelections: [
+          "test",
+          "test<T>",
+          "func test<T>() {}",
+        ]
+      )
+    }
+
+    @Test
     func testGenericConstraints() async throws {
       try await testSelectionRange(
         markedSource: """

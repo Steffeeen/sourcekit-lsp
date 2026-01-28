@@ -106,35 +106,51 @@ private func calculateRangesFor(
   switch node.as(SyntaxEnum.self) {
 
   case .classDecl(let classDeclaration):
-    return calculateRangesForDeclaration(
+    return calculateRangesForTypeOrFunctionDeclaration(
+      declaration: Syntax(classDeclaration),
       previousNode: previousNode,
-      declaration: DeclSyntax(classDeclaration),
       nameOrType: Syntax(classDeclaration.name),
       genericParameters: classDeclaration.genericParameterClause
     )
 
   case .structDecl(let structDeclaration):
-    return calculateRangesForDeclaration(
+    return calculateRangesForTypeOrFunctionDeclaration(
+      declaration: Syntax(structDeclaration),
       previousNode: previousNode,
-      declaration: DeclSyntax(structDeclaration),
       nameOrType: Syntax(structDeclaration.name),
       genericParameters: structDeclaration.genericParameterClause
     )
 
   case .protocolDecl(let protocolDeclaration):
-    return calculateRangesForDeclaration(
+    return calculateRangesForTypeOrFunctionDeclaration(
+      declaration: Syntax(protocolDeclaration),
       previousNode: previousNode,
-      declaration: DeclSyntax(protocolDeclaration),
       nameOrType: Syntax(protocolDeclaration.name),
       genericParameters: nil
     )
 
   case .extensionDecl(let extensionDeclaration):
-    return calculateRangesForDeclaration(
+    return calculateRangesForTypeOrFunctionDeclaration(
+      declaration: Syntax(extensionDeclaration),
       previousNode: previousNode,
-      declaration: DeclSyntax(extensionDeclaration),
       nameOrType: Syntax(extensionDeclaration.extendedType),
       genericParameters: nil
+    )
+
+  case .typeAliasDecl(let typeAliasDeclaration):
+    return calculateRangesForTypeOrFunctionDeclaration(
+      declaration: Syntax(typeAliasDeclaration),
+      previousNode: previousNode,
+      nameOrType: Syntax(typeAliasDeclaration.name),
+      genericParameters: typeAliasDeclaration.genericParameterClause
+    )
+
+  case .functionDecl(let functionDeclaration):
+    return calculateRangesForTypeOrFunctionDeclaration(
+      declaration: Syntax(functionDeclaration),
+      previousNode: previousNode,
+      nameOrType: Syntax(functionDeclaration.name),
+      genericParameters: functionDeclaration.genericParameterClause
     )
 
   case .stringSegment(let segment):
@@ -148,9 +164,6 @@ private func calculateRangesFor(
 
   case .labeledExpr(let labeledExpression):
     return calculateRangesInside(labeledExpression: labeledExpression, previousNode: previousNode)
-
-  case .functionDecl(let functionDeclaration):
-    return calculateRangesInside(functionDeclaration: functionDeclaration, previousNode: previousNode)
 
   case .genericParameterClause(let genericParameterClause):
     return calculateRangesInside(genericParameterClause: genericParameterClause, previousNode: previousNode)
@@ -185,9 +198,6 @@ private func calculateRangesFor(
   case .associatedTypeDecl(let associatedTypeDeclaration):
     return calculateRangesInside(associatedTypeDeclaration: associatedTypeDeclaration, previousNode: previousNode)
 
-  case .typeAliasDecl(let typeAliasDeclaration):
-    return calculateRangesInside(typeAliasDeclaration: typeAliasDeclaration, previousNode: previousNode)
-
   case .dictionaryElement(let dictionaryElement):
     return calculateRangesInside(dictionaryElement: dictionaryElement)
 
@@ -214,9 +224,9 @@ private func calculateRangesFor(
   }
 }
 
-private func calculateRangesForDeclaration(
+private func calculateRangesForTypeOrFunctionDeclaration(
+  declaration: Syntax,
   previousNode: Syntax,
-  declaration: DeclSyntax,
   nameOrType: Syntax,
   genericParameters: GenericParameterClauseSyntax?,
 ) -> [Range<AbsolutePosition>] {
@@ -224,6 +234,12 @@ private func calculateRangesForDeclaration(
 
   if previousNode.id == nameOrType.id {
     ranges.append(nameOrType.trimmedRange)
+
+    if let genericParameters = genericParameters {
+      let start = nameOrType.positionAfterSkippingLeadingTrivia
+      let end = genericParameters.endPositionBeforeTrailingTrivia
+      ranges.append(start..<end)
+    }
   } else if let genericParameters = genericParameters,
     previousNode.id == genericParameters.id
   {
@@ -334,26 +350,6 @@ private func calculateRangesInside(
 
   let end = labeledExpression.expression.endPositionBeforeTrailingTrivia
   ranges.append(labeledExpression.positionAfterSkippingLeadingTrivia..<end)
-
-  return ranges
-}
-
-private func calculateRangesInside(
-  functionDeclaration: FunctionDeclSyntax,
-  previousNode: Syntax,
-) -> [Range<AbsolutePosition>] {
-  var ranges: [Range<AbsolutePosition>] = []
-  if previousNode.id == functionDeclaration.name.id {
-    ranges.append(functionDeclaration.name.trimmedRange)
-  } else if let genericClause = functionDeclaration.genericParameterClause,
-    previousNode.id == genericClause.id
-  {
-    ranges.append(
-      functionDeclaration.name.positionAfterSkippingLeadingTrivia..<genericClause.endPositionBeforeTrailingTrivia
-    )
-  }
-
-  ranges.append(functionDeclaration.trimmedRange)
 
   return ranges
 }
@@ -610,21 +606,6 @@ private func calculateRangesInside(
   }
 
   ranges.append(associatedTypeDeclaration.trimmedRange)
-  return ranges
-}
-
-private func calculateRangesInside(
-  typeAliasDeclaration: TypeAliasDeclSyntax,
-  previousNode: Syntax,
-) -> [Range<AbsolutePosition>] {
-  var ranges: [Range<AbsolutePosition>] = []
-
-  if previousNode.id == typeAliasDeclaration.name.id {
-    ranges.append(typeAliasDeclaration.name.trimmedRange)
-  }
-
-  ranges.append(typeAliasDeclaration.trimmedRange)
-
   return ranges
 }
 
