@@ -139,8 +139,8 @@ private func calculateRangesFor(
   case .functionParameter(let parameter):
     return calculateRangesInside(parameter: parameter, position: position)
 
-  case .functionSignature(let signature):
-    return calculateRangesInside(signature: signature, position: position)
+  case .functionEffectSpecifiers(let effectSpecifiers):
+    return calculateRangesInside(effectSpecifiers: effectSpecifiers, position: position)
 
   case .closureSignature(let closureSignature):
     return calculateRangesInside(closureSignature: closureSignature)
@@ -182,7 +182,7 @@ private func calculateRangesFor(
     return calculateRangesInside(availabilityArgument: availabilityArgument)
 
   case .patternBindingList, .initializerClause, .matchingPatternCondition, .exprList,
-    .accessorDeclList, .functionParameterClause, .functionEffectSpecifiers, .switchCaseLabel, .switchCaseList,
+    .accessorDeclList, .functionParameterClause, .functionSignature, .switchCaseLabel, .switchCaseList,
     .inheritedType, .memberBlockItemList, .memberBlock, .enumCaseParameterClause,
     .optionalChainingExpr, .tuplePatternElement, .arrayElement, .keyPathComponent, .keyPathComponentList:
     return []
@@ -433,28 +433,18 @@ private func calculateRangesInside(
 }
 
 private func calculateRangesInside(
-  signature: FunctionSignatureSyntax,
+  effectSpecifiers: FunctionEffectSpecifiersSyntax,
   position: AbsolutePosition
 ) -> [Range<AbsolutePosition>] {
   var ranges: [Range<AbsolutePosition>] = []
-  if let effectSpecifiers = signature.effectSpecifiers,
-    let asyncSpecifier = effectSpecifiers.asyncSpecifier,
+  if let asyncSpecifier = effectSpecifiers.asyncSpecifier,
     asyncSpecifier.trimmedRange.contains(position)
   {
     // explicitly add a range for the async keyword token as we directly skip to the parent of the token that contained the cursor
     ranges.append(asyncSpecifier.trimmedRange)
   }
 
-  if let effectSpecifiers = signature.effectSpecifiers,
-    let returnClause = signature.returnClause
-  {
-    if effectSpecifiers.trimmedRange.contains(position) {
-      ranges.append(effectSpecifiers.trimmedRange)
-      ranges.append(effectSpecifiers.positionAfterSkippingLeadingTrivia..<returnClause.endPositionBeforeTrailingTrivia)
-    } else if returnClause.trimmedRange.contains(position) {
-      ranges.append(effectSpecifiers.positionAfterSkippingLeadingTrivia..<returnClause.endPositionBeforeTrailingTrivia)
-    }
-  }
+  ranges.append(effectSpecifiers.trimmedRange)
 
   return ranges
 }

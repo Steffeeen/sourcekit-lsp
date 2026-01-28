@@ -592,7 +592,6 @@ struct SelectionRangeTests {
         expectedSelections: [
           "String",
           "-> String",
-          "async throws -> String",
           """
           func test() async throws -> String {
             return "test"
@@ -612,7 +611,6 @@ struct SelectionRangeTests {
           """,
         expectedSelections: [
           "throws",
-          "throws -> String",
           """
           func processFile() throws -> String {
             return try readFile()
@@ -633,7 +631,6 @@ struct SelectionRangeTests {
         expectedSelections: [
           "async",
           "async throws",
-          "async throws -> Data",
         ]
       )
     }
