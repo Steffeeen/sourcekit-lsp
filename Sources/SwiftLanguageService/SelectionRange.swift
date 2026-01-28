@@ -143,6 +143,9 @@ private func calculateRangesFor(
   case .associatedTypeDecl(let associatedTypeDeclaration):
     return calculateRangesInside(associatedTypeDeclaration: associatedTypeDeclaration, position: position)
 
+  case .typeAliasDecl(let typeAliasDeclaration):
+    return calculateRangesInside(typeAliasDeclaration: typeAliasDeclaration, position: position)
+
   case .dictionaryElement(let dictionaryElement):
     return calculateRangesInside(dictionaryElement: dictionaryElement)
 
@@ -669,6 +672,21 @@ private func calculateRangesInside(
   }
 
   ranges.append(associatedTypeDeclaration.trimmedRange)
+  return ranges
+}
+
+private func calculateRangesInside(
+  typeAliasDeclaration: TypeAliasDeclSyntax,
+  position: AbsolutePosition
+) -> [Range<AbsolutePosition>] {
+  var ranges: [Range<AbsolutePosition>] = []
+
+  if typeAliasDeclaration.name.trimmedRange.contains(position) {
+    ranges.append(typeAliasDeclaration.name.trimmedRange)
+  }
+
+  ranges.append(typeAliasDeclaration.trimmedRange)
+
   return ranges
 }
 
