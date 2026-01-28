@@ -143,6 +143,9 @@ private func calculateRangesFor(
   case .associatedTypeDecl(let associatedTypeDeclaration):
     return calculateRangesInside(associatedTypeDeclaration: associatedTypeDeclaration, position: position)
 
+  case .dictionaryElement(let dictionaryElement):
+    return calculateRangesInside(dictionaryElement: dictionaryElement)
+
   case .operatorDecl(let operatorDeclaration):
     return calculateRangesInside(operatorDeclaration: operatorDeclaration, position: position)
 
@@ -667,6 +670,17 @@ private func calculateRangesInside(
 
   ranges.append(associatedTypeDeclaration.trimmedRange)
   return ranges
+}
+
+private func calculateRangesInside(dictionaryElement: DictionaryElementSyntax) -> [Range<AbsolutePosition>] {
+  let start = dictionaryElement.positionAfterSkippingLeadingTrivia
+  let end =
+    if let trailingComma = dictionaryElement.trailingComma {
+      trailingComma.positionAfterSkippingLeadingTrivia
+    } else {
+      dictionaryElement.positionAfterSkippingLeadingTrivia
+    }
+  return [start..<end]
 }
 
 private func calculateRangesInside(
