@@ -25,7 +25,7 @@ extension SwiftLanguageService {
     return req.positions.map { position in
       let absolutePosition = snapshot.absolutePosition(of: position)
 
-      guard let token = sourceFile.token(at: absolutePosition), let initialNode = token.parent else {
+      guard let token = findIntuitiveToken(in: sourceFile, at: absolutePosition), let initialNode = token.parent else {
         return SelectionRange(range: position..<position)
       }
 
@@ -40,6 +40,26 @@ extension SwiftLanguageService {
       }
     }
   }
+}
+
+private func findIntuitiveToken(in sourceFile: SourceFileSyntax, at position: AbsolutePosition) -> TokenSyntax? {
+  guard let currentToken = sourceFile.token(at: position) else {
+    return nil
+  }
+
+  let boundaryTokens: [TokenKind] = [
+    .rightParen, .rightBrace, .rightSquare, .comma, .semicolon, .period, .colon, .rightAngle,
+  ]
+
+  if position == currentToken.position && boundaryTokens.contains(currentToken.tokenKind) {
+    // the cursor is at the start of a boundary token (e.g. `test(a: 3, b: 2|)`)
+    // here the user most likely wants to select the `2` and then `b: 2` instead of
+    // selecting the entire function call, so we use the previous token
+    let newToken = currentToken.previousToken(viewMode: .sourceAccurate) ?? currentToken
+    return newToken
+  }
+
+  return currentToken
 }
 
 private func computeSelectionRangeFor(
@@ -280,22 +300,6 @@ private func calculateRangesInside(
     ]
   }
 
-  if let rightParen = functionCall.rightParen,
-    rightParen.trimmedRange.contains(position),
-    let lastArgument = functionCall.arguments.last
-  {
-    // special case for when the cursor is right before the closing paren, like this: `test(a: 1|)`
-    // we still want to select the parameters first
-    var ranges: [Range<AbsolutePosition>] = []
-
-    ranges.append(lastArgument.expression.trimmedRange)
-    ranges.append(contentsOf: calculateRangesInside(labeledExpression: lastArgument, position: position))
-    ranges.append(functionCall.arguments.trimmedRange)
-    ranges.append(functionCall.trimmedRange)
-
-    return ranges
-  }
-
   // the default case: just create a range for the function call node
   return [functionCall.trimmedRange]
 }
@@ -334,29 +338,17 @@ private func calculateRangesInside(
 
 private func calculateRangesInside(
   functionDeclaration: FunctionDeclSyntax,
-  position: AbsolutePosition
+  previousNode: Syntax,
 ) -> [Range<AbsolutePosition>] {
   var ranges: [Range<AbsolutePosition>] = []
-  if functionDeclaration.name.trimmedRange.contains(position) {
+  if previousNode.id == functionDeclaration.name.id {
     ranges.append(functionDeclaration.name.trimmedRange)
   } else if let genericClause = functionDeclaration.genericParameterClause,
-    genericClause.trimmedRange.contains(position)
+    previousNode.id == genericClause.id
   {
     ranges.append(
       functionDeclaration.name.positionAfterSkippingLeadingTrivia..<genericClause.endPositionBeforeTrailingTrivia
     )
-  } else if functionDeclaration.signature.parameterClause.rightParen.trimmedRange.contains(position),
-    let lastArgument = functionDeclaration.signature.parameterClause.parameters.last
-  {
-    // special case for when the cursor is directly before the closing paren, like this: `a: Int|)`
-    ranges.append(lastArgument.type.trimmedRange)
-    // using this position is a bit of a hack, but it is needed as the calculateRangesInside() function
-    // uses the position information to check which ranges it needs to create
-    // if we provided the correct position the function would return the wrong ranges
-    let shiftedPosition = lastArgument.endPositionBeforeTrailingTrivia.advanced(by: -1)
-    ranges.append(contentsOf: calculateRangesInside(parameter: lastArgument, position: shiftedPosition))
-
-    ranges.append(functionDeclaration.signature.parameterClause.parameters.trimmedRange)
   }
 
   ranges.append(functionDeclaration.trimmedRange)
@@ -366,24 +358,8 @@ private func calculateRangesInside(
 
 private func calculateRangesInside(
   genericParameterClause: GenericParameterClauseSyntax,
-  position: AbsolutePosition
+  previousNode: Syntax,
 ) -> [Range<AbsolutePosition>] {
-  if genericParameterClause.rightAngle.trimmedRange.contains(position) {
-    // special case for when the cursor is directly before the angle bracket, like this: `<T|>`
-    // in this case we still want to have a selection range for selecting `T`
-    var ranges: [Range<AbsolutePosition>] = []
-    if let lastParameter = genericParameterClause.parameters.last {
-      if lastParameter.trailingComma == nil {
-        ranges.append(contentsOf: calculateRangesInside(genericParameter: lastParameter))
-      } else {
-        // if the parameter has a trailing comma like this: `<T,|>` we don't create an additional range
-        ranges.append(lastParameter.trimmedRange)
-      }
-    }
-    ranges.append(genericParameterClause.trimmedRange)
-    return ranges
-  }
-
   return [genericParameterClause.trimmedRange]
 }
 
