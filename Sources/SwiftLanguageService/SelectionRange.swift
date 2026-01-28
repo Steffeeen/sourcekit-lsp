@@ -93,7 +93,7 @@ private func calculateRangesFor(
     return calculateRangesInside(subscriptCall: subscriptCall, position: position)
 
   case .labeledExpr(let labeledExpression):
-    return calculateRangesInside(labeledExpression: labeledExpression)
+    return calculateRangesInside(labeledExpression: labeledExpression, position: position)
 
   case .functionDecl(let functionDeclaration):
     return calculateRangesInside(functionDeclaration: functionDeclaration, position: position)
@@ -240,7 +240,7 @@ private func calculateRangesInside(
     var ranges: [Range<AbsolutePosition>] = []
 
     ranges.append(lastArgument.expression.trimmedRange)
-    ranges.append(contentsOf: calculateRangesInside(labeledExpression: lastArgument))
+    ranges.append(contentsOf: calculateRangesInside(labeledExpression: lastArgument, position: position))
     ranges.append(functionCall.arguments.trimmedRange)
     ranges.append(functionCall.trimmedRange)
 
@@ -264,9 +264,23 @@ private func calculateRangesInside(
   return [subscriptCall.trimmedRange]
 }
 
-private func calculateRangesInside(labeledExpression: LabeledExprSyntax) -> [Range<AbsolutePosition>] {
+private func calculateRangesInside(
+  labeledExpression: LabeledExprSyntax,
+  position: AbsolutePosition
+) -> [Range<AbsolutePosition>] {
+  var ranges: [Range<AbsolutePosition>] = []
+
+  if let label = labeledExpression.label,
+    label.trimmedRange.contains(position)
+  {
+
+    ranges.append(label.trimmedRange)
+  }
+
   let end = labeledExpression.expression.endPositionBeforeTrailingTrivia
-  return [labeledExpression.positionAfterSkippingLeadingTrivia..<end]
+  ranges.append(labeledExpression.positionAfterSkippingLeadingTrivia..<end)
+
+  return ranges
 }
 
 private func calculateRangesInside(
