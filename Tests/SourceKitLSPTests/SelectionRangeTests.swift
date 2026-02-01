@@ -230,6 +230,28 @@ class SelectionRangeTests: XCTestCase {
     )
   }
 
+  func testPropertyWithGetterAndSetterWithCursorInName() async throws {
+    try await testSelectionRange(
+      markedSource: """
+        var temp1️⃣erature: Double {
+          get {
+            return _temperature
+          }
+        }
+        """,
+      expectedSelections: [
+        "temperature",
+        """
+        var temperature: Double {
+          get {
+            return _temperature
+          }
+        }
+        """,
+      ]
+    )
+  }
+
   func testPropertyWithWillSetDidSet() async throws {
     try await testSelectionRange(
       markedSource: """
@@ -911,6 +933,13 @@ class SelectionRangeTests: XCTestCase {
         }
         """,
       ]
+    )
+  }
+
+  func testForLoopCursorInForKeyword() async throws {
+    try await testSelectionRange(
+      markedSource: "f1️⃣or i in 1...3 {}",
+      expectedSelections: ["for i in 1...3 {}"]
     )
   }
 
