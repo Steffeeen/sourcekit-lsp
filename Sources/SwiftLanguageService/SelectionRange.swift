@@ -438,53 +438,20 @@ extension ExprListSyntax: SelectionRangeProvider {
     let foldedTreeOffset = SourceLength(utf8Length: sequenceExpression.position.utf8Offset)
 
     let startInTree = previousNode.positionAfterSkippingLeadingTrivia - foldedTreeOffset
-    let endInTree = previousNode.endPositionBeforeTrailingTrivia - foldedTreeOffset
 
-    let operandNode = findCorrespondingOperandIn(
-      foldedTree: Syntax(foldedTree),
-      operandStart: startInTree,
-      operandEnd: endInTree
-    )
+    guard let operandNode = foldedTree.token(at: startInTree)?.parent else {
+      return []
+    }
 
     var ranges: [Range<AbsolutePosition>] = []
 
     for node in sequence(first: operandNode, next: \.parent) {
-      if node.is(InfixOperatorExprSyntax.self) {
-        let startPosition = node.positionAfterSkippingLeadingTrivia + foldedTreeOffset
-        let endPosition = node.endPositionBeforeTrailingTrivia + foldedTreeOffset
-        ranges.append(startPosition..<endPosition)
-      }
-    }
-
-    if ranges.last != sequenceExpression.trimmedRange {
-      ranges.append(sequenceExpression.trimmedRange)
+      let startPosition = node.positionAfterSkippingLeadingTrivia + foldedTreeOffset
+      let endPosition = node.endPositionBeforeTrailingTrivia + foldedTreeOffset
+      ranges.append(startPosition..<endPosition)
     }
 
     return ranges
-  }
-
-  private func findCorrespondingOperandIn(
-    foldedTree: Syntax,
-    operandStart: AbsolutePosition,
-    operandEnd: AbsolutePosition
-  ) -> Syntax {
-    var current = foldedTree
-    while true {
-      // walk the tree downwards, following the nodes which contain the operand node
-      guard
-        let child = current.children(viewMode: .sourceAccurate).first(where: {
-          $0.position <= operandStart && operandEnd <= $0.endPosition
-        })
-      else {
-        return current
-      }
-
-      if !child.is(InfixOperatorExprSyntax.self) {
-        return child
-      }
-
-      current = child
-    }
   }
 }
 
