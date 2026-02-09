@@ -266,11 +266,11 @@ extension FunctionCallExprSyntax: SelectionRangeProvider {
 }
 
 extension SubscriptCallExprSyntax: SelectionRangeProvider {
-  // For subscript calls we want to have a selection range for the entire subscript operator
-  // including the `[]`
-  // example: given `matrix[2, |3]` we want to be able to select `[2, 3]`
-
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
+    // For subscript calls we want to have a selection range for the entire subscript operator
+    // including the `[]`
+    // example: given `matrix[2, |3]` we want to be able to select `[2, 3]`
+
     if previousNode.id == self.arguments.id {
       let start = self.leftSquare.positionAfterSkippingLeadingTrivia
       let end = self.rightSquare.endPositionBeforeTrailingTrivia
@@ -282,9 +282,8 @@ extension SubscriptCallExprSyntax: SelectionRangeProvider {
 }
 
 extension LabeledExprSyntax: SelectionRangeProvider {
-  // for labeled expressions we want to be able to select just the label and expression without the comma
-
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
+    // for labeled expressions we want to be able to select just the label and expression without the comma
     var ranges: [Range<AbsolutePosition>] = []
 
     if let label = self.label, previousNode.id == label.id {
@@ -300,8 +299,8 @@ extension LabeledExprSyntax: SelectionRangeProvider {
 }
 
 extension GenericParameterSyntax: SelectionRangeProvider {
-  // don't include the trailing comma in the selection, except if the parameter is the only one
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
+    // don't include the trailing comma in the selection, except if the parameter is the only one
     if let parameterList = self.parent?.as(GenericParameterListSyntax.self),
       parameterList.count == 1
     {
@@ -314,11 +313,10 @@ extension GenericParameterSyntax: SelectionRangeProvider {
 }
 
 extension FunctionParameterSyntax: SelectionRangeProvider {
-  // Function parameters have two special cases:
-  // - If the cursor is in the type and the type includes an ellipsis we want to have a range for the type and ellipsis
-  // - If the parameter has two names we want to have a range for selecting both names
-
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
+    // Function parameters have two special cases:
+    // - If the cursor is in the type and the type includes an ellipsis we want to have a range for the type and ellipsis
+    // - If the parameter has two names we want to have a range for selecting both names
     let start = self.positionAfterSkippingLeadingTrivia
     let end = self.trailingComma?.position ?? self.endPositionBeforeTrailingTrivia
     let rangeWithoutComma = start..<end
@@ -370,9 +368,8 @@ extension FunctionEffectSpecifiersSyntax: SelectionRangeProvider {
 }
 
 extension ClosureSignatureSyntax: SelectionRangeProvider {
-  // For closure signatures we add a selection for the signature + body content
-
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
+    // For closure signatures we add a selection for the signature + body content
     var ranges: [Range<AbsolutePosition>] = []
     ranges.append(self.trimmedRange)
 
@@ -387,9 +384,9 @@ extension ClosureSignatureSyntax: SelectionRangeProvider {
 }
 
 extension EnumCaseParameterSyntax: SelectionRangeProvider {
-  // For enum case parameters we also add a range for selecting the names of the parameter, similar to function parameters
-
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
+    // For enum case parameters we also add a range for selecting the names of the parameter, similar to function parameters
+
     // This implementation is really similar to the one for FunctionParameterSyntax,
     // except that we don't have to deal with ellipses and have to deal with unlabeled parameters
     let start = self.positionAfterSkippingLeadingTrivia
@@ -428,10 +425,9 @@ extension EnumCaseParameterSyntax: SelectionRangeProvider {
 }
 
 extension ExprListSyntax: SelectionRangeProvider {
-  // Expression lists are more complex to deal with as we first have to convert the expression list into the
-  // corresponding tree. We can then find the node the cursor is on in the tree and walk the tree up to its root
-
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
+    // Expression lists are more complex to deal with as we first have to convert the expression list into the
+    // corresponding tree. We can then find the node the cursor is on in the tree and walk the tree up to its root
     guard let sequenceExpression = self.parent?.as(SequenceExprSyntax.self) else {
       return [self.trimmedRange]
     }
@@ -493,9 +489,8 @@ extension ExprListSyntax: SelectionRangeProvider {
 }
 
 extension PatternBindingSyntax: SelectionRangeProvider {
-  // For pattern bindings we special-case depending on whether we have a single pattern binding or multiple
-
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
+    // For pattern bindings we special-case depending on whether we have a single pattern binding or multiple
     guard let patternBindingList = self.parent?.as(PatternBindingListSyntax.self) else {
       return []
     }
@@ -528,12 +523,11 @@ extension CodeBlockSyntax: SelectionRangeProvider {
 }
 
 extension ForStmtSyntax: SelectionRangeProvider {
-  // For statements get an extra range for selecting from the pattern until the sequence,
-  // i.e. selecting `i in 1...3` in `for i in 1...3 {}`
-  // As the for statement can have a lot of immediate children, more special cases can be added here in the future,
-  // for example for the keywords before the pattern
-
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
+    // For statements get an extra range for selecting from the pattern until the sequence,
+    // i.e. selecting `i in 1...3` in `for i in 1...3 {}`
+    // As the for statement can have a lot of immediate children, more special cases can be added here in the future,
+    // for example for the keywords before the pattern
     var ranges: [Range<AbsolutePosition>] = []
 
     if previousNode.id == self.pattern.id || previousNode.id == self.typeAnnotation?.id
