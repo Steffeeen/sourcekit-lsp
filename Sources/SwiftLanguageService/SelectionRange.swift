@@ -112,7 +112,6 @@ private func calculateRangesFor(
   position: AbsolutePosition
 ) -> [Range<AbsolutePosition>] {
   switch node.as(SyntaxEnum.self) {
-
   case .stringSegment(let stringSegmentSyntax):
     // We have to use custom logic for string segments as they need the position.
     // We cannot provide the position in the protocol as it may not always be correct due to the logic in findIntuitiveToken().
@@ -184,9 +183,9 @@ private protocol SelectionRangeProvider: SyntaxProtocol {
 extension ClassDeclSyntax: SelectionRangeProvider {
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
     return calculateRangesForTypeOrFunctionDeclaration(
-      declaration: Syntax(self),
+      declaration: self,
       previousNode: previousNode,
-      nameOrType: Syntax(self.name),
+      nameOrType: self.name,
       genericParameters: self.genericParameterClause
     )
   }
@@ -194,11 +193,10 @@ extension ClassDeclSyntax: SelectionRangeProvider {
 
 extension StructDeclSyntax: SelectionRangeProvider {
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
-
     return calculateRangesForTypeOrFunctionDeclaration(
-      declaration: Syntax(self),
+      declaration: self,
       previousNode: previousNode,
-      nameOrType: Syntax(self.name),
+      nameOrType: self.name,
       genericParameters: self.genericParameterClause
     )
   }
@@ -206,11 +204,10 @@ extension StructDeclSyntax: SelectionRangeProvider {
 
 extension ProtocolDeclSyntax: SelectionRangeProvider {
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
-
     return calculateRangesForTypeOrFunctionDeclaration(
-      declaration: Syntax(self),
+      declaration: self,
       previousNode: previousNode,
-      nameOrType: Syntax(self.name),
+      nameOrType: self.name,
       genericParameters: nil
     )
   }
@@ -218,11 +215,10 @@ extension ProtocolDeclSyntax: SelectionRangeProvider {
 
 extension ExtensionDeclSyntax: SelectionRangeProvider {
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
-
     return calculateRangesForTypeOrFunctionDeclaration(
-      declaration: Syntax(self),
+      declaration: self,
       previousNode: previousNode,
-      nameOrType: Syntax(self.extendedType),
+      nameOrType: self.extendedType,
       genericParameters: nil
     )
   }
@@ -230,11 +226,10 @@ extension ExtensionDeclSyntax: SelectionRangeProvider {
 
 extension TypeAliasDeclSyntax: SelectionRangeProvider {
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
-
     return calculateRangesForTypeOrFunctionDeclaration(
-      declaration: Syntax(self),
+      declaration: self,
       previousNode: previousNode,
-      nameOrType: Syntax(self.name),
+      nameOrType: self.name,
       genericParameters: self.genericParameterClause
     )
   }
@@ -242,20 +237,19 @@ extension TypeAliasDeclSyntax: SelectionRangeProvider {
 
 extension FunctionDeclSyntax: SelectionRangeProvider {
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
-
     return calculateRangesForTypeOrFunctionDeclaration(
-      declaration: Syntax(self),
+      declaration: self,
       previousNode: previousNode,
-      nameOrType: Syntax(self.name),
+      nameOrType: self.name,
       genericParameters: self.genericParameterClause
     )
   }
 }
 
 private func calculateRangesForTypeOrFunctionDeclaration(
-  declaration: Syntax,
-  previousNode: Syntax,
-  nameOrType: Syntax,
+  declaration: some SyntaxProtocol,
+  previousNode: some SyntaxProtocol,
+  nameOrType: some SyntaxProtocol,
   genericParameters: GenericParameterClauseSyntax?,
 ) -> [Range<AbsolutePosition>] {
   // If we started the selection in either the name (or type in the case of extensions)
@@ -294,7 +288,7 @@ private func calculateRangesForTypeOrFunctionDeclaration(
 extension FunctionCallExprSyntax: SelectionRangeProvider {
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
     if let memberAccess = self.calledExpression.as(MemberAccessExprSyntax.self),
-      self.parent?.as(ExpressionPatternSyntax.self) == nil,
+      !(self.parent?.is(ExpressionPatternSyntax.self) ?? false),
       previousNode.id == self.arguments.id
         || previousNode.id == self.trailingClosure?.id
     {
@@ -341,9 +335,7 @@ extension LabeledExprSyntax: SelectionRangeProvider {
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
     var ranges: [Range<AbsolutePosition>] = []
 
-    if let label = self.label,
-      previousNode.id == label.id
-    {
+    if let label = self.label, previousNode.id == label.id {
       // the label is a token, so we have to manually add a selection range for it
       ranges.append(label.trimmedRange)
     }
@@ -376,12 +368,7 @@ extension FunctionParameterSyntax: SelectionRangeProvider {
 
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
     let start = self.positionAfterSkippingLeadingTrivia
-    let end =
-      if let comma = self.trailingComma {
-        comma.position
-      } else {
-        self.endPositionBeforeTrailingTrivia
-      }
+    let end = self.trailingComma?.position ?? self.endPositionBeforeTrailingTrivia
     let rangeWithoutComma = start..<end
 
     if previousNode.id == self.type.id {
@@ -454,12 +441,7 @@ extension EnumCaseParameterSyntax: SelectionRangeProvider {
     // This implementation is really similar to the one for FunctionParameterSyntax,
     // except that we don't have to deal with ellipses and have to deal with unlabeled parameters
     let start = self.positionAfterSkippingLeadingTrivia
-    let end =
-      if let comma = self.trailingComma {
-        comma.position
-      } else {
-        self.endPositionBeforeTrailingTrivia
-      }
+    let end = self.trailingComma?.position ?? self.endPositionBeforeTrailingTrivia
     let rangeWithoutComma = start..<end
 
     if previousNode.id == self.type.id {
@@ -505,10 +487,10 @@ extension ExprListSyntax: SelectionRangeProvider {
     let table = OperatorTable.standardOperators
     guard let foldedTree = try? table.foldSingle(sequenceExpression) else { return [] }
 
-    let startInTree =
-      previousNode.positionAfterSkippingLeadingTrivia - SourceLength(utf8Length: sequenceExpression.position.utf8Offset)
-    let endInTree =
-      previousNode.endPositionBeforeTrailingTrivia - SourceLength(utf8Length: sequenceExpression.position.utf8Offset)
+    let foldedTreeOffset = SourceLength(utf8Length: sequenceExpression.position.utf8Offset)
+
+    let startInTree = previousNode.positionAfterSkippingLeadingTrivia - foldedTreeOffset
+    let endInTree = previousNode.endPositionBeforeTrailingTrivia - foldedTreeOffset
 
     let operandNode = findCorrespondingOperandIn(
       foldedTree: Syntax(foldedTree),
@@ -518,12 +500,10 @@ extension ExprListSyntax: SelectionRangeProvider {
 
     var ranges: [Range<AbsolutePosition>] = []
 
-    for node in sequence(first: operandNode, next: { $0.parent }) {
+    for node in sequence(first: operandNode, next: \.parent) {
       if node.is(InfixOperatorExprSyntax.self) {
-        let startPosition =
-          sequenceExpression.position + SourceLength(utf8Length: node.positionAfterSkippingLeadingTrivia.utf8Offset)
-        let endPosition =
-          sequenceExpression.position + SourceLength(utf8Length: node.endPositionBeforeTrailingTrivia.utf8Offset)
+        let startPosition = node.positionAfterSkippingLeadingTrivia + foldedTreeOffset
+        let endPosition = node.endPositionBeforeTrailingTrivia + foldedTreeOffset
         ranges.append(startPosition..<endPosition)
       }
     }
@@ -572,12 +552,7 @@ extension PatternBindingSyntax: SelectionRangeProvider {
       // special case for pattern bindings like this: `let x = 1, y = 2, z = 3`
       // here we want to be able to select only `y = 2`
       let start = self.positionAfterSkippingLeadingTrivia
-      let end =
-        if let comma = self.trailingComma {
-          comma.position
-        } else {
-          self.endPositionBeforeTrailingTrivia
-        }
+      let end = self.trailingComma?.position ?? self.endPositionBeforeTrailingTrivia
       return [start..<end]
     }
 
@@ -638,12 +613,7 @@ extension AssociatedTypeDeclSyntax: SelectionRangeProvider {
 extension DictionaryElementSyntax: SelectionRangeProvider {
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
     let start = self.positionAfterSkippingLeadingTrivia
-    let end =
-      if let trailingComma = self.trailingComma {
-        trailingComma.positionAfterSkippingLeadingTrivia
-      } else {
-        self.positionAfterSkippingLeadingTrivia
-      }
+    let end = self.trailingComma?.position ?? self.endPositionBeforeTrailingTrivia
     return [start..<end]
   }
 }
@@ -661,19 +631,19 @@ extension OperatorDeclSyntax: SelectionRangeProvider {
 
 extension MemberAccessExprSyntax: SelectionRangeProvider {
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
-    return if self.parent?.is(FunctionCallExprSyntax.self) == true {
+    if self.parent?.is(FunctionCallExprSyntax.self) ?? false {
       // If the member access is part of a function call, we don't return any range as this case is handled in the
       // FunctionCallExprSyntax extension
-      []
-    } else {
-      [self.trimmedRange]
+      return []
     }
+
+    return [self.trimmedRange]
   }
 }
 
 extension IdentifierTypeSyntax: SelectionRangeProvider {
   func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
-    if self.parent?.is(AttributeSyntax.self) == true {
+    if self.parent?.is(AttributeSyntax.self) ?? false {
       // for attributes we don't want to create a range for just the attribute but rather always include the `@`
       return []
     }
