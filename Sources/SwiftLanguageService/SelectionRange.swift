@@ -158,35 +158,20 @@ private func calculateSelectionRangesForStringSegment(
 ) -> [Range<AbsolutePosition>] {
   // For string segments we first want to select just the word under the cursor.
   // To determine words we use a simple heuristic: expand the selection until we hit any whitespace character.
-
   let offsetInString = position.utf8Offset - stringSegment.positionAfterSkippingLeadingTrivia.utf8Offset
 
   let text = stringSegment.content.text
-  let index = text.index(text.startIndex, offsetBy: offsetInString)
+  let index = text.utf8.index(text.startIndex, offsetBy: offsetInString)
 
-  if text[index].isWhitespace {
+  if !text[index].isLetter {
     return []
   }
 
-  var start = index
-  while text.startIndex < start {
-    let prev = text.index(before: start)
-    if text[prev].isWhitespace {
-      break
-    }
-    start = prev
-  }
+  let start = text[..<index].lastIndex(where: { !$0.isLetter }).flatMap { text.index(after: $0) } ?? text.startIndex
+  let end = text[index...].firstIndex(where: { !$0.isLetter }) ?? text.endIndex
 
-  var end = index
-  while end < text.endIndex {
-    if text[end].isWhitespace {
-      break
-    }
-    end = text.index(after: end)
-  }
-
-  let startOffsetInString = text.distance(from: text.startIndex, to: start)
-  let endOffsetInString = text.distance(from: text.startIndex, to: end)
+  let startOffsetInString = text.utf8.distance(from: text.startIndex, to: start)
+  let endOffsetInString = text.utf8.distance(from: text.startIndex, to: end)
 
   let startPosition = stringSegment.positionAfterSkippingLeadingTrivia.advanced(by: startOffsetInString)
   let endPosition = stringSegment.positionAfterSkippingLeadingTrivia.advanced(by: endOffsetInString)

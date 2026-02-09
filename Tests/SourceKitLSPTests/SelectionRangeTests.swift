@@ -26,7 +26,33 @@ class SelectionRangeTests: XCTestCase {
         let a = "Hel1️⃣lo, World!"
         """,
       expectedSelections: [
-        "Hello,",
+        "Hello",
+        "Hello, World!",
+        "\"Hello, World!\"",
+      ]
+    )
+  }
+
+  func testStringLiteralWithCursorInWord2() async throws {
+    try await testSelectionRange(
+      markedSource: """
+        let a = "Hello, Wor1️⃣ld!"
+        """,
+      expectedSelections: [
+        "World",
+        "Hello, World!",
+        "\"Hello, World!\"",
+      ]
+    )
+  }
+
+  func testStringLiteralWithCursorInWord3() async throws {
+    try await testSelectionRange(
+      markedSource: """
+        let a = "Hello, 1️⃣World!"
+        """,
+      expectedSelections: [
+        "World",
         "Hello, World!",
         "\"Hello, World!\"",
       ]
@@ -43,6 +69,15 @@ class SelectionRangeTests: XCTestCase {
         "\"Hello, World!\"",
         "let a = \"Hello, World!\"",
       ]
+    )
+  }
+
+  func testStringLiteralWithUnicodeChars() async throws {
+    try await testSelectionRange(
+      markedSource: """
+        let a = "test 🚀 tes1️⃣t"
+        """,
+      expectedSelections: ["test", "test 🚀 test", "\"test 🚀 test\""]
     )
   }
 
@@ -69,9 +104,9 @@ class SelectionRangeTests: XCTestCase {
           let c = "Hel3️⃣lo, World!"
         """,
       expectedSelections: [
-        ["Hello,", "Hello, World!"],
-        ["Hello,", "Hello, World!"],
-        ["Hello,", "Hello, World!"],
+        ["Hello", "Hello, World!"],
+        ["Hello", "Hello, World!"],
+        ["Hello", "Hello, World!"],
       ]
     )
   }
@@ -2292,8 +2327,10 @@ class SelectionRangeTests: XCTestCase {
       utf16Column: selectionRange.range.upperBound.utf16index
     )
 
-    let lowerBoundIndex = lineTable.content.index(lineTable.content.startIndex, offsetBy: lowerBoundOffset)
-    let upperBoundIndex = lineTable.content.index(lineTable.content.startIndex, offsetBy: upperBoundOffset)
-    return String(lineTable.content[lowerBoundIndex..<upperBoundIndex])
+    let utf8 = lineTable.content.utf8
+    let lowerBoundIndex = utf8.index(lineTable.content.startIndex, offsetBy: lowerBoundOffset)
+    let upperBoundIndex = utf8.index(lineTable.content.startIndex, offsetBy: upperBoundOffset)
+    let slice = utf8[lowerBoundIndex..<upperBoundIndex]
+    return String(decoding: slice, as: UTF8.self)
   }
 }
