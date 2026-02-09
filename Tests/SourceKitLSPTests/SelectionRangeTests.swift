@@ -2146,6 +2146,22 @@ class SelectionRangeTests: XCTestCase {
     )
   }
 
+  // MARK: - Actors
+
+  func testActorDeclaration() async throws {
+    try await testSelectionRange(
+      markedSource: "actor Te1️⃣st {}",
+      expectedSelections: ["Test", "actor Test {}"]
+    )
+  }
+
+  func testActorDeclarationWithGenerics() async throws {
+    try await testSelectionRange(
+      markedSource: "actor Test<T1️⃣> {}",
+      expectedSelections: ["T", "<T>", "Test<T>", "actor Test<T> {}"]
+    )
+  }
+
   func testSelectionRange(
     markedSource: String,
     expectedSelections: [String],

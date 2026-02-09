@@ -126,6 +126,24 @@ private func calculateRangesFor(
     return []
 
   default:
+    if node.isProtocol((any DeclGroupSyntax).self)
+      || node.is(TypeAliasDeclSyntax.self)
+      || node.is(FunctionDeclSyntax.self)
+    {
+      let name = Syntax(node.asProtocol((any NamedDeclSyntax).self)?.name)
+      let type = Syntax(node.as(ExtensionDeclSyntax.self)?.extendedType)
+      let genericParameterClause = node.asProtocol((any WithGenericParametersSyntax).self)?.genericParameterClause
+
+      if let nameOrType = name ?? type {
+        return calculateRangesForTypeOrFunctionDeclaration(
+          declaration: node,
+          previousNode: previousNode,
+          nameOrType: nameOrType,
+          genericParameters: genericParameterClause
+        )
+      }
+    }
+
     if let provider = node.asProtocol((any SyntaxProtocol).self) as? (any SelectionRangeProvider) {
       return provider.calculateSelectionRanges(previousNode: previousNode)
     }
@@ -176,76 +194,6 @@ private func calculateSelectionRangesForStringSegment(
   return [startPosition..<endPosition]
 }
 
-private protocol SelectionRangeProvider: SyntaxProtocol {
-  func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>]
-}
-
-extension ClassDeclSyntax: SelectionRangeProvider {
-  func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
-    return calculateRangesForTypeOrFunctionDeclaration(
-      declaration: self,
-      previousNode: previousNode,
-      nameOrType: self.name,
-      genericParameters: self.genericParameterClause
-    )
-  }
-}
-
-extension StructDeclSyntax: SelectionRangeProvider {
-  func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
-    return calculateRangesForTypeOrFunctionDeclaration(
-      declaration: self,
-      previousNode: previousNode,
-      nameOrType: self.name,
-      genericParameters: self.genericParameterClause
-    )
-  }
-}
-
-extension ProtocolDeclSyntax: SelectionRangeProvider {
-  func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
-    return calculateRangesForTypeOrFunctionDeclaration(
-      declaration: self,
-      previousNode: previousNode,
-      nameOrType: self.name,
-      genericParameters: nil
-    )
-  }
-}
-
-extension ExtensionDeclSyntax: SelectionRangeProvider {
-  func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
-    return calculateRangesForTypeOrFunctionDeclaration(
-      declaration: self,
-      previousNode: previousNode,
-      nameOrType: self.extendedType,
-      genericParameters: nil
-    )
-  }
-}
-
-extension TypeAliasDeclSyntax: SelectionRangeProvider {
-  func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
-    return calculateRangesForTypeOrFunctionDeclaration(
-      declaration: self,
-      previousNode: previousNode,
-      nameOrType: self.name,
-      genericParameters: self.genericParameterClause
-    )
-  }
-}
-
-extension FunctionDeclSyntax: SelectionRangeProvider {
-  func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>] {
-    return calculateRangesForTypeOrFunctionDeclaration(
-      declaration: self,
-      previousNode: previousNode,
-      nameOrType: self.name,
-      genericParameters: self.genericParameterClause
-    )
-  }
-}
-
 private func calculateRangesForTypeOrFunctionDeclaration(
   declaration: some SyntaxProtocol,
   previousNode: some SyntaxProtocol,
@@ -283,6 +231,10 @@ private func calculateRangesForTypeOrFunctionDeclaration(
   ranges.append(declaration.trimmedRange)
 
   return ranges
+}
+
+private protocol SelectionRangeProvider: SyntaxProtocol {
+  func calculateSelectionRanges(previousNode: Syntax) -> [Range<AbsolutePosition>]
 }
 
 extension FunctionCallExprSyntax: SelectionRangeProvider {
