@@ -2218,14 +2218,12 @@ class SelectionRangeTests: XCTestCase {
   func testSelectionRange(
     markedSource: String,
     expectedSelections: [String],
-    checkNumberOfSelectionsMatchesExactly: Bool = false,
     file: StaticString = #filePath,
     line: UInt = #line
   ) async throws {
     try await testSelectionRange(
       markedSource: markedSource,
       expectedSelections: [expectedSelections],
-      checkNumberOfSelectionsMatchesExactly: checkNumberOfSelectionsMatchesExactly,
       file: file,
       line: line
     )
@@ -2234,7 +2232,6 @@ class SelectionRangeTests: XCTestCase {
   func testSelectionRange(
     markedSource: String,
     expectedSelections: [[String]],
-    checkNumberOfSelectionsMatchesExactly: Bool = false,
     file: StaticString = #filePath,
     line: UInt = #line
   ) async throws {
@@ -2271,24 +2268,8 @@ class SelectionRangeTests: XCTestCase {
       let range = response[0]
       let expected = expectedSelections[index]
 
-      var numberOfSelectionsReturned = 0
-      var currentRange = range
-      while true {
-        numberOfSelectionsReturned += 1
-        guard let parent = currentRange.parent else {
-          break
-        }
-        currentRange = parent
-      }
-
-      if checkNumberOfSelectionsMatchesExactly {
-        XCTAssertEqual(numberOfSelectionsReturned, expected.count, file: file, line: line)
-      } else {
-        XCTAssertGreaterThanOrEqual(numberOfSelectionsReturned, expected.count, file: file, line: line)
-      }
-
       var rangeIndex = 0
-      currentRange = range
+      var currentRange: SelectionRange? = range
       while rangeIndex < expected.count {
         let selectString = getStringOfSelectionRange(lineTable: lineTable, selectionRange: currentRange)
         XCTAssertEqual(
@@ -2303,13 +2284,9 @@ class SelectionRangeTests: XCTestCase {
           line: line
         )
 
-        guard let parent = currentRange.parent else {
-          break
-        }
-        currentRange = parent
+        currentRange = currentRange?.parent
         rangeIndex += 1
       }
-
     }
   }
 
@@ -2335,7 +2312,11 @@ class SelectionRangeTests: XCTestCase {
     }
   }
 
-  func getStringOfSelectionRange(lineTable: LineTable, selectionRange: SelectionRange) -> String {
+  func getStringOfSelectionRange(lineTable: LineTable, selectionRange: SelectionRange?) -> String {
+    guard let selectionRange = selectionRange else {
+      return "<no selection range>"
+    }
+
     let lowerBoundOffset = lineTable.utf8OffsetOf(
       line: selectionRange.range.lowerBound.line,
       utf16Column: selectionRange.range.lowerBound.utf16index
