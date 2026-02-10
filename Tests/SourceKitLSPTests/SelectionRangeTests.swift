@@ -129,6 +129,13 @@ class SelectionRangeTests: XCTestCase {
     )
   }
 
+  func testBinaryExpression() async throws {
+    try await testSelectionRange(
+      markedSource: "let a = test(3 + 51️⃣)",
+      expectedSelections: ["5", "3 + 5", "test(3 + 5)"]
+    )
+  }
+
   func testComplexConditionalExpression() async throws {
     try await testSelectionRange(
       markedSource: """
@@ -148,16 +155,17 @@ class SelectionRangeTests: XCTestCase {
   func testComplexConditionalExpression2() async throws {
     try await testSelectionRange(
       markedSource: """
-        let valid = (x > 0 && (y <1️⃣ 100)) || (x == 0 && y == 0)
+        let valid = (x > 0 && (y < -11️⃣00)) || (x == 0 && y == 0)
         """,
       expectedSelections: [
-        "<",
-        "y < 100",
-        "(y < 100)",
-        "x > 0 && (y < 100)",
-        "(x > 0 && (y < 100))",
-        "(x > 0 && (y < 100)) || (x == 0 && y == 0)",
-        "let valid = (x > 0 && (y < 100)) || (x == 0 && y == 0)",
+        "100",
+        "-100",
+        "y < -100",
+        "(y < -100)",
+        "x > 0 && (y < -100)",
+        "(x > 0 && (y < -100))",
+        "(x > 0 && (y < -100)) || (x == 0 && y == 0)",
+        "let valid = (x > 0 && (y < -100)) || (x == 0 && y == 0)",
       ]
     )
   }
@@ -342,7 +350,7 @@ class SelectionRangeTests: XCTestCase {
         let result = numbers
           .filter { $0 > 1️⃣0 }
           .map { $0 * 2️⃣2 }
-          .reduce(0, 3️⃣+)
+          .red3️⃣uce(0, 4️⃣+)
         """,
       expectedSelections: [
         [
@@ -382,6 +390,16 @@ class SelectionRangeTests: XCTestCase {
             .filter { $0 > 0 }
             .map { $0 * 2 }
           """,
+          """
+          numbers
+            .filter { $0 > 0 }
+            .map { $0 * 2 }
+            .reduce(0, +)
+          """,
+        ],
+        [
+          "reduce",
+          "reduce(0, +)",
           """
           numbers
             .filter { $0 > 0 }
