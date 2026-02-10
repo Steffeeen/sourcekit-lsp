@@ -113,45 +113,37 @@ private func calculateRangesFor(
   snapshot: DocumentSnapshot,
   position: AbsolutePosition
 ) -> [Range<AbsolutePosition>] {
-  switch node.as(SyntaxEnum.self) {
-  case .stringSegment(let stringSegmentSyntax):
+  if let stringSegment = node.as(StringSegmentSyntax.self) {
     // We have to use custom logic for string segments as they need the position.
     // We cannot provide the position in the protocol as it may not always be correct due to the logic in findIntuitiveToken().
     // For the string segment this does not matter as when we encounter a string segment node we can be sure that
     // findIntuitiveToken() always returned the original token.
-    return calculateSelectionRangesForStringSegment(stringSegment: stringSegmentSyntax, position: position)
-
-  case .patternBindingList, .initializerClause, .matchingPatternCondition, .sequenceExpr,
-    .accessorDeclList, .functionParameterClause, .functionSignature, .switchCaseLabel, .switchCaseList,
-    .inheritedType, .memberBlockItemList, .memberBlock, .enumCaseParameterClause,
-    .optionalChainingExpr, .tuplePatternElement, .arrayElement, .keyPathComponent, .keyPathComponentList:
-    return []
-
-  default:
-    if node.isProtocol((any DeclGroupSyntax).self)
-      || node.is(TypeAliasDeclSyntax.self)
-      || node.is(FunctionDeclSyntax.self)
-    {
-      let name = Syntax(node.asProtocol((any NamedDeclSyntax).self)?.name)
-      let type = Syntax(node.as(ExtensionDeclSyntax.self)?.extendedType)
-      let genericParameterClause = node.asProtocol((any WithGenericParametersSyntax).self)?.genericParameterClause
-
-      if let nameOrType = name ?? type {
-        return calculateRangesForTypeOrFunctionDeclaration(
-          declaration: node,
-          position: position,
-          nameOrType: nameOrType,
-          genericParameters: genericParameterClause
-        )
-      }
-    }
-
-    if let provider = node.asProtocol((any SyntaxProtocol).self) as? (any SelectionRangeProvider) {
-      return provider.calculateSelectionRanges(position: position)
-    }
-
-    return [node.trimmedRange]
+    return calculateSelectionRangesForStringSegment(stringSegment: stringSegment, position: position)
   }
+
+  if node.isProtocol((any DeclGroupSyntax).self)
+    || node.is(TypeAliasDeclSyntax.self)
+    || node.is(FunctionDeclSyntax.self)
+  {
+    let name = Syntax(node.asProtocol((any NamedDeclSyntax).self)?.name)
+    let type = Syntax(node.as(ExtensionDeclSyntax.self)?.extendedType)
+    let genericParameterClause = node.asProtocol((any WithGenericParametersSyntax).self)?.genericParameterClause
+
+    if let nameOrType = name ?? type {
+      return calculateRangesForTypeOrFunctionDeclaration(
+        declaration: node,
+        position: position,
+        nameOrType: nameOrType,
+        genericParameters: genericParameterClause
+      )
+    }
+  }
+
+  if let provider = node.asProtocol((any SyntaxProtocol).self) as? (any SelectionRangeProvider) {
+    return provider.calculateSelectionRanges(position: position)
+  }
+
+  return []
 }
 
 private func calculateSelectionRangesForStringSegment(
@@ -571,3 +563,74 @@ extension AvailabilityArgumentSyntax: SelectionRangeProvider {
     return [self.trimmedRange]
   }
 }
+
+// default implementation used by all the nodes declared below
+private extension SelectionRangeProvider {
+  func calculateSelectionRanges(position: AbsolutePosition) -> [Range<AbsolutePosition>] {
+    return [self.trimmedRange]
+  }
+}
+
+extension AccessorBlockSyntax: SelectionRangeProvider {}
+extension AccessorDeclSyntax: SelectionRangeProvider {}
+extension ArrayElementListSyntax: SelectionRangeProvider {}
+extension ArrayExprSyntax: SelectionRangeProvider {}
+extension AsExprSyntax: SelectionRangeProvider {}
+extension AttributedTypeSyntax: SelectionRangeProvider {}
+extension AttributeListSyntax: SelectionRangeProvider {}
+extension AttributeSyntax: SelectionRangeProvider {}
+extension AvailabilityArgumentListSyntax: SelectionRangeProvider {}
+extension AwaitExprSyntax: SelectionRangeProvider {}
+extension ClassDeclSyntax: SelectionRangeProvider {}
+extension ClosureExprSyntax: SelectionRangeProvider {}
+extension ClosureShorthandParameterListSyntax: SelectionRangeProvider {}
+extension ClosureShorthandParameterSyntax: SelectionRangeProvider {}
+extension CompositionTypeElementListSyntax: SelectionRangeProvider {}
+extension ConditionElementListSyntax: SelectionRangeProvider {}
+extension ConditionElementSyntax: SelectionRangeProvider {}
+extension ConformanceRequirementSyntax: SelectionRangeProvider {}
+extension DeclReferenceExprSyntax: SelectionRangeProvider {}
+extension DeinitializerDeclSyntax: SelectionRangeProvider {}
+extension DictionaryElementListSyntax: SelectionRangeProvider {}
+extension DictionaryExprSyntax: SelectionRangeProvider {}
+extension DoStmtSyntax: SelectionRangeProvider {}
+extension EnumCaseDeclSyntax: SelectionRangeProvider {}
+extension EnumCaseElementListSyntax: SelectionRangeProvider {}
+extension ExpressionSegmentSyntax: SelectionRangeProvider {}
+extension FunctionParameterListSyntax: SelectionRangeProvider {}
+extension GenericParameterClauseSyntax: SelectionRangeProvider {}
+extension GenericParameterListSyntax: SelectionRangeProvider {}
+extension GenericRequirementSyntax: SelectionRangeProvider {}
+extension GenericWhereClauseSyntax: SelectionRangeProvider {}
+extension GuardStmtSyntax: SelectionRangeProvider {}
+extension IdentifierPatternSyntax: SelectionRangeProvider {}
+extension IfExprSyntax: SelectionRangeProvider {}
+extension ImplicitlyUnwrappedOptionalTypeSyntax: SelectionRangeProvider {}
+extension InheritanceClauseSyntax: SelectionRangeProvider {}
+extension InheritedTypeListSyntax: SelectionRangeProvider {}
+extension InitializerDeclSyntax: SelectionRangeProvider {}
+extension IntegerLiteralExprSyntax: SelectionRangeProvider {}
+extension KeyPathExprSyntax: SelectionRangeProvider {}
+extension LabeledExprListSyntax: SelectionRangeProvider {}
+extension MacroExpansionExprSyntax: SelectionRangeProvider {}
+extension PlatformVersionSyntax: SelectionRangeProvider {}
+extension RepeatStmtSyntax: SelectionRangeProvider {}
+extension ReturnClauseSyntax: SelectionRangeProvider {}
+extension ReturnStmtSyntax: SelectionRangeProvider {}
+extension StringLiteralExprSyntax: SelectionRangeProvider {}
+extension StringLiteralSegmentListSyntax: SelectionRangeProvider {}
+extension SubscriptDeclSyntax: SelectionRangeProvider {}
+extension SwitchCaseItemListSyntax: SelectionRangeProvider {}
+extension SwitchCaseItemSyntax: SelectionRangeProvider {}
+extension SwitchCaseSyntax: SelectionRangeProvider {}
+extension SwitchExprSyntax: SelectionRangeProvider {}
+extension ThrowStmtSyntax: SelectionRangeProvider {}
+extension TryExprSyntax: SelectionRangeProvider {}
+extension TupleExprSyntax: SelectionRangeProvider {}
+extension TuplePatternElementListSyntax: SelectionRangeProvider {}
+extension TuplePatternSyntax: SelectionRangeProvider {}
+extension TypeAnnotationSyntax: SelectionRangeProvider {}
+extension UnresolvedAsExprSyntax: SelectionRangeProvider {}
+extension VariableDeclSyntax: SelectionRangeProvider {}
+extension VersionTupleSyntax: SelectionRangeProvider {}
+extension WhileStmtSyntax: SelectionRangeProvider {}
