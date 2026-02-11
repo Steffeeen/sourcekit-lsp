@@ -523,6 +523,13 @@ class SelectionRangeTests: XCTestCase {
     )
   }
 
+  func testFunctionDeclarationWithCursorImmediatelyBeforeParenthesis() async throws {
+    try await testSelectionRange(
+      markedSource: "func foo1️⃣(a: Int) {}",
+      expectedSelections: ["foo", "func foo(a: Int) {}"]
+    )
+  }
+
   func testFunctionDeclarationWithTwoNameParameter() async throws {
     try await testSelectionRange(
       markedSource: "func test(abc de1️⃣f: String) {}",
@@ -779,6 +786,15 @@ class SelectionRangeTests: XCTestCase {
         }
         """,
       ]
+    )
+  }
+
+  func testClosureCursorImmediatelyBeforeBrace() async throws {
+    try await testSelectionRange(
+      markedSource: """
+          let x = "abc".map 1️⃣{ $0 }
+        """,
+      expectedSelections: ["map", "map { $0 }", "\"abc\".map { $0 }"]
     )
   }
 
@@ -1448,6 +1464,25 @@ class SelectionRangeTests: XCTestCase {
     )
   }
 
+  func testGenericStructWithCursorImmediatelyBeforeAngle() async throws {
+    try await testSelectionRange(
+      markedSource: """
+        struct Stack1️⃣<Element> {
+          var items: [Element] = []
+        }
+        """,
+      expectedSelections: [
+        "Stack",
+        "Stack<Element>",
+        """
+        struct Stack<Element> {
+          var items: [Element] = []
+        }
+        """,
+      ]
+    )
+  }
+
   func testGenericFunction() async throws {
     try await testSelectionRange(
       markedSource: "func te1️⃣st<T>() {}",
@@ -1923,6 +1958,19 @@ class SelectionRangeTests: XCTestCase {
         "2",
         "2, 3",
         "[2, 3]",
+        "matrix[2, 3]",
+        "let value = matrix[2, 3]",
+      ]
+    )
+  }
+
+  func testSubScriptUsageWithCursorImmediatelyBeforeSquare() async throws {
+    try await testSelectionRange(
+      markedSource: """
+        let value = matrix1️⃣[2, 3]
+        """,
+      expectedSelections: [
+        "matrix",
         "matrix[2, 3]",
         "let value = matrix[2, 3]",
       ]

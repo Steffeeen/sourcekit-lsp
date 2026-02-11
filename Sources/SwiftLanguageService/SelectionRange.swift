@@ -53,7 +53,12 @@ private func findIntuitiveToken(
   }
 
   let boundaryTokens: [TokenKind] = [
-    .rightParen, .rightBrace, .rightSquare, .comma, .semicolon, .period, .colon, .rightAngle,
+    .leftParen, .rightParen,
+    .leftBrace, .rightBrace,
+    .leftSquare, .rightSquare,
+    .leftAngle, .rightAngle,
+    .comma, .period,
+    .semicolon, .colon,
   ]
 
   if position == currentToken.position && boundaryTokens.contains(currentToken.tokenKind) {
