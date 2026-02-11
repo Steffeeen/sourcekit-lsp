@@ -33,7 +33,7 @@ extension SwiftLanguageService {
         let selectionRange = computeSelectionRangeFor(
           position: newPosition,
           snapshot: snapshot,
-          token: token
+          node: Syntax(token)
         )
       else {
         return SelectionRange(range: position..<position)
@@ -70,21 +70,13 @@ private func findIntuitiveToken(
 private func computeSelectionRangeFor(
   position: AbsolutePosition,
   snapshot: DocumentSnapshot,
-  token: TokenSyntax
+  node: Syntax
 ) -> SelectionRange? {
   var ranges: [Range<AbsolutePosition>] = []
 
-  // The first node we call calculateRangesFor() for is never a token. This forces us to sometimes explicitly create
-  // selection ranges for tokens, for example in calculateRangesForTypeOrFunctionDeclaration().
-  //
-  // The alternative would be to use the token as the child and parent simultaneously in the first iteration.
-  // This would however lead to extra special-casing in other places, for example for attributes. For attributes we
-  // immediately want to select the entire attribute including the `@`. We thus don't want to create a selection range
-  // for the identifier token. This ensure this we would need to special-case the range creation of the identifier
-  // token to check what kind of parent it has.
-  var child = Syntax(token)
-  while let parent = child.parent {
-    let rangesForNode = calculateRangesFor(node: parent, snapshot: snapshot, position: position)
+  var current = node
+  while true {
+    let rangesForNode = calculateRangesFor(node: current, snapshot: snapshot, position: position)
 
     for range in rangesForNode {
       if ranges.last == range {
@@ -95,7 +87,11 @@ private func computeSelectionRangeFor(
       ranges.append(range)
     }
 
-    child = parent
+    guard let parent = current.parent else {
+      break
+    }
+
+    current = parent
   }
 
   var selectionRange: SelectionRange? = nil
