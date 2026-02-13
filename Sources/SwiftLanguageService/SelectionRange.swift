@@ -191,17 +191,8 @@ private func calculateRangesForTypeOrFunctionDeclaration(
 
   var ranges: [Range<AbsolutePosition>] = []
 
-  if nameOrType.range.contains(position) {
-    // As the name is a token we have to explicitly add a range here for selecting just the name
-    ranges.append(nameOrType.trimmedRange)
-
-    if let genericParameters = genericParameters {
-      let start = nameOrType.positionAfterSkippingLeadingTrivia
-      let end = genericParameters.endPositionBeforeTrailingTrivia
-      ranges.append(start..<end)
-    }
-  } else if let genericParameters = genericParameters,
-    genericParameters.range.contains(position)
+  if let genericParameters = genericParameters,
+    nameOrType.range.contains(position) || genericParameters.range.contains(position)
   {
     let start = nameOrType.positionAfterSkippingLeadingTrivia
     let end = genericParameters.endPositionBeforeTrailingTrivia
@@ -263,17 +254,10 @@ extension SubscriptCallExprSyntax: SelectionRangeProvider {
 extension LabeledExprSyntax: SelectionRangeProvider {
   func calculateSelectionRanges(position: AbsolutePosition) -> [Range<AbsolutePosition>] {
     // for labeled expressions we want to be able to select just the label and expression without the comma
-    var ranges: [Range<AbsolutePosition>] = []
-
-    if let label = self.label, label.range.contains(position) {
-      // the label is a token, so we have to manually add a selection range for it
-      ranges.append(label.trimmedRange)
-    }
-
+    let start = self.positionAfterSkippingLeadingTrivia
     let end = self.expression.endPositionBeforeTrailingTrivia
-    ranges.append(self.positionAfterSkippingLeadingTrivia..<end)
 
-    return ranges
+    return [start..<end]
   }
 }
 
@@ -327,22 +311,6 @@ extension FunctionParameterSyntax: SelectionRangeProvider {
     }
 
     return [firstNameRange, rangeWithoutComma]
-  }
-}
-
-extension FunctionEffectSpecifiersSyntax: SelectionRangeProvider {
-  func calculateSelectionRanges(position: AbsolutePosition) -> [Range<AbsolutePosition>] {
-    var ranges: [Range<AbsolutePosition>] = []
-    if let asyncSpecifier = self.asyncSpecifier,
-      asyncSpecifier.range.contains(position)
-    {
-      // explicitly add a range for the async keyword token as the first AST node we look at is never a token.
-      ranges.append(asyncSpecifier.trimmedRange)
-    }
-
-    ranges.append(self.trimmedRange)
-
-    return ranges
   }
 }
 
@@ -498,35 +466,11 @@ extension ForStmtSyntax: SelectionRangeProvider {
   }
 }
 
-extension AssociatedTypeDeclSyntax: SelectionRangeProvider {
-  func calculateSelectionRanges(position: AbsolutePosition) -> [Range<AbsolutePosition>] {
-    var ranges: [Range<AbsolutePosition>] = []
-    if self.name.range.contains(position) {
-      // As name is a token, we have to explicitly add a range for it
-      ranges.append(self.name.trimmedRange)
-    }
-
-    ranges.append(self.trimmedRange)
-    return ranges
-  }
-}
-
 extension DictionaryElementSyntax: SelectionRangeProvider {
   func calculateSelectionRanges(position: AbsolutePosition) -> [Range<AbsolutePosition>] {
     let start = self.positionAfterSkippingLeadingTrivia
     let end = self.trailingComma?.position ?? self.endPositionBeforeTrailingTrivia
     return [start..<end]
-  }
-}
-
-extension OperatorDeclSyntax: SelectionRangeProvider {
-  func calculateSelectionRanges(position: AbsolutePosition) -> [Range<AbsolutePosition>] {
-    if self.name.range.contains(position) {
-      // As name is a token, we have to explicitly add a range for it
-      return [self.name.trimmedRange, self.trimmedRange]
-    }
-
-    return [self.trimmedRange]
   }
 }
 
@@ -565,6 +509,35 @@ extension AvailabilityArgumentSyntax: SelectionRangeProvider {
   }
 }
 
+extension TokenSyntax: SelectionRangeProvider {
+  func calculateSelectionRanges(position: AbsolutePosition) -> [Range<AbsolutePosition>] {
+    let parentTypes: [any SyntaxProtocol.Type] = [
+      LabeledExprSyntax.self,
+      AssociatedTypeDeclSyntax.self,
+      OperatorDeclSyntax.self,
+    ]
+
+    if parentTypes.contains(where: { self.parent?.is($0) ?? false }) {
+      return [self.trimmedRange]
+    }
+
+    if self.parent?.isProtocol((any DeclGroupSyntax).self) ?? false
+      || self.parent?.is(TypeAliasDeclSyntax.self) ?? false
+      || self.parent?.is(FunctionDeclSyntax.self) ?? false
+    {
+      return [self.trimmedRange]
+    }
+
+    if case .keyword(let keyword) = self.tokenKind,
+      keyword == .async || keyword == .reasync
+    {
+      return [self.trimmedRange]
+    }
+
+    return []
+  }
+}
+
 // default implementation used by all the nodes declared below
 private extension SelectionRangeProvider {
   func calculateSelectionRanges(position: AbsolutePosition) -> [Range<AbsolutePosition>] {
@@ -577,6 +550,7 @@ extension AccessorDeclSyntax: SelectionRangeProvider {}
 extension ArrayElementListSyntax: SelectionRangeProvider {}
 extension ArrayExprSyntax: SelectionRangeProvider {}
 extension AsExprSyntax: SelectionRangeProvider {}
+extension AssociatedTypeDeclSyntax: SelectionRangeProvider {}
 extension AttributedTypeSyntax: SelectionRangeProvider {}
 extension AttributeListSyntax: SelectionRangeProvider {}
 extension AttributeSyntax: SelectionRangeProvider {}
@@ -598,6 +572,7 @@ extension DoStmtSyntax: SelectionRangeProvider {}
 extension EnumCaseDeclSyntax: SelectionRangeProvider {}
 extension EnumCaseElementListSyntax: SelectionRangeProvider {}
 extension ExpressionSegmentSyntax: SelectionRangeProvider {}
+extension FunctionEffectSpecifiersSyntax: SelectionRangeProvider {}
 extension FunctionParameterListSyntax: SelectionRangeProvider {}
 extension GenericParameterClauseSyntax: SelectionRangeProvider {}
 extension GenericParameterListSyntax: SelectionRangeProvider {}
@@ -614,6 +589,7 @@ extension IntegerLiteralExprSyntax: SelectionRangeProvider {}
 extension KeyPathExprSyntax: SelectionRangeProvider {}
 extension LabeledExprListSyntax: SelectionRangeProvider {}
 extension MacroExpansionExprSyntax: SelectionRangeProvider {}
+extension OperatorDeclSyntax: SelectionRangeProvider {}
 extension PlatformVersionSyntax: SelectionRangeProvider {}
 extension RepeatStmtSyntax: SelectionRangeProvider {}
 extension ReturnClauseSyntax: SelectionRangeProvider {}
